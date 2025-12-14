@@ -68,7 +68,8 @@ def predict():
             'city': CITY_NAME,
             'prediction_type': 'Max Temp (LSTM)',
             'value': float(f"{prediction_real:.2f}"),
-            'unit': 'C'
+            'unit': 'C',
+            'history': [float(f"{x:.1f}") for x in scaler.inverse_transform(last_30_days)[-7:, 0]] # Son 7 günün gerçek verisi
         })
 
     except Exception as e:
