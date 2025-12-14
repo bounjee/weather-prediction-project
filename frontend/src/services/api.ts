@@ -43,6 +43,7 @@ export interface AgroAnalysis {
     ai_prediction?: {
         value: number;
         message: string;
+        history?: number[];
     };
 }
 
