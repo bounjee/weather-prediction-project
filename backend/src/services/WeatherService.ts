@@ -75,13 +75,26 @@ export class WeatherService {
     private readonly LANGUAGE = 'tr';
 
     async getForecast(city: string): Promise<DayForecast[]> {
+        // --- DEBUG API KEY START ---
+        console.log(`[WeatherService] Requesting forecast for: ${city}`);
+
+        if (!this.API_KEY) {
+            console.error('[WeatherService] ERROR: OPENWEATHER_API_KEY is undefined in environment variables.');
+        } else if (this.API_KEY === 'your_api_key_here') {
+            console.error('[WeatherService] ERROR: API Key is still the placeholder value.');
+        } else {
+            console.log(`[WeatherService] API Key detected (first 4 chars): ${this.API_KEY.substring(0, 4)}... (Length: ${this.API_KEY.length})`);
+        }
+        // --- DEBUG API KEY END ---
+
         // Fallback to mock if no key is present in env
         if (!this.API_KEY || this.API_KEY === 'your_api_key_here') {
-            console.warn('API Key missing, using mock data.');
+            console.warn('[WeatherService] Using Mock Data (Fallback Mode) due to missing API Key.');
             return this.getMockForecast(city);
         }
 
         try {
+            console.log(`[WeatherService] Sending HTTP GET request to OpenWeatherMap...`);
             // 1. Call 5 day / 3 hour forecast API
             const response = await axios.get<OpenWeatherResponse>(`${this.BASE_URL}/forecast`, {
                 params: {
@@ -92,6 +105,8 @@ export class WeatherService {
                 }
             });
 
+            console.log(`[WeatherService] API Response received. Status: ${response.status}`);
+
             // 2. Process and aggregate data by day
             const dailyData = this.processForecastData(response.data.list);
 
@@ -101,10 +116,29 @@ export class WeatherService {
                 analysis: DecisionEngine.analyze(weather)
             }));
 
-        } catch (error) {
-            console.error('Weather API Error:', error);
+        } catch (error: any) {
+            console.error('[WeatherService] API REQUEST FAILED.');
+            console.error('[WeatherService] Error Message:', error.message);
+
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                console.error('[WeatherService] Response Status:', error.response.status);
+                // console.error('[WeatherService] Response Data:', JSON.stringify(error.response.data));
+
+                if (error.response.status === 401) {
+                    console.error('[WeatherService] CRITICAL: 401 Unauthorized. Please check your API Key validity.');
+                }
+                if (error.response.status === 404) {
+                    console.error(`[WeatherService] City "${city}" not found.`);
+                }
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.error('[WeatherService] No response received from OpenWeatherMap (Network Issue?).');
+            }
+
             // Fallback to mock on error to keep app running
-            console.log('Falling back to mock data...');
+            console.log('[WeatherService] Falling back to mock data so the app does not crash...');
             return this.getMockForecast(city);
         }
     }
@@ -137,8 +171,6 @@ export class WeatherService {
             const icon = items[midIndex].weather[0].main.toLowerCase();
 
             // Calculate day/night temps (approximate)
-            // OpenWeather defines day around 12:00, night around 00:00, but we have 3hr intervals.
-            // Let's take max as day, min as night for simplicity or average
             let tempSum = 0;
 
             items.forEach(item => {
@@ -151,11 +183,9 @@ export class WeatherService {
             });
 
             const dayTemp = Math.round(tempSum / items.length);
-            // In a real app, 'night' temp implies the following night, but here we simplify
             const nightTemp = Math.round(minTemp);
 
-            // Convert wind speed from m/s to km/h if needed (OpenWeather returns m/s for metric)
-            // 1 m/s = 3.6 km/h
+            // Convert wind speed from m/s to km/h (1 m/s = 3.6 km/h)
             const windKmH = Math.round(maxWind * 3.6);
 
             results.push({
@@ -178,6 +208,7 @@ export class WeatherService {
     }
 
     private getMockForecast(city: string): DayForecast[] {
+        console.log(`[WeatherService] Generating MOCK data for ${city}`);
         const rawData = generateMockData(3);
         return rawData.map(weather => ({
             weather,
