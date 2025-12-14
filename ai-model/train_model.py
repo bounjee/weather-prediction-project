@@ -4,99 +4,101 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
+import os
 
-# 1. Veri Yükleme ve Hazırlama
-def load_data(filepath):
-    # Gerçek senaryoda CSV'den okunacak
-    # df = pd.read_csv(filepath)
-    
-    # Şimdilik MOCK veri üretiyoruz (Demo amaçlı)
-    dates = pd.date_range(start='2020-01-01', end='2024-12-31', freq='D')
-    df = pd.DataFrame({'Date': dates})
-    
-    # Sinus dalgası + rastgele gürültü ile sıcaklık simülasyonu
-    x = np.arange(len(df))
-    df['Temp_Max'] = 15 + 10 * np.sin(2 * np.pi * x / 365.25) + np.random.normal(0, 2, len(df))
-    df['Temp_Min'] = df['Temp_Max'] - np.random.uniform(5, 12, len(df))
-    df['Humidity'] = 60 + 20 * np.cos(2 * np.pi * x / 365.25) + np.random.normal(0, 5, len(df))
-    
-    print(f"Veri Seti Yüklendi. Toplam gün sayısı: {len(df)}")
-    return df
+# Ayarlar
+CITY_NAME = 'Ankara' # Modelin eğitileceği şehir
+TARGET_COL = 'daily_max_temp' # Tahmin edilecek değer
+FEATURE_COLS = ['daily_max_temp', 'daily_min_temp', 'avg_relative_humidity'] # Girdi olarak kullanılacaklar
+LOOK_BACK = 30 # Geçmiş 30 güne bakarak tahmin et
+EPOCHS = 20
+BATCH_SIZE = 32
 
-# 2. Ön İşleme (Scaling & Windowing)
-def preprocess_data(df, look_back=30):
-    data = df[['Temp_Max']].values # Sadece Max Sıcaklık tahmini üzerine odaklanalım (Univariate)
+def load_and_process_data(filepath):
+    print(f"Dataset yükleniyor: {filepath}")
+    df = pd.read_csv(filepath)
     
+    # Tarihi datetime objesine çevir
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # 1. Şehir Filtreleme
+    df_city = df[df['city_name'] == CITY_NAME].sort_values('date')
+    print(f"{CITY_NAME} için {len(df_city)} günlük veri bulundu.")
+    
+    if len(df_city) == 0:
+        raise ValueError(f"Hata: {CITY_NAME} şehrine ait veri bulunamadı! Mevcut şehirleri kontrol edin.")
+
+    # 2. Sadece gerekli sütunları al
+    data = df_city[FEATURE_COLS].values
+    
+    # 3. Normalizasyon (0-1 arasına sıkıştır)
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(data)
     
-    X, y = [], []
-    for i in range(look_back, len(scaled_data)):
-        X.append(scaled_data[i-look_back:i, 0])
-        y.append(scaled_data[i, 0])
-        
-    X, y = np.array(X), np.array(y)
-    
-    # LSTM için giriş şekli: [Samples, Time Steps, Features]
-    X = np.reshape(X, (X.shape[0], X.shape[1], 1))
-    
-    return X, y, scaler
+    return scaled_data, scaler, df_city['date'].values
 
-# 3. Model Oluşturma (LSTM)
-def create_model(input_shape):
+def create_dataset(dataset, look_back=30):
+    X, y = [], []
+    for i in range(look_back, len(dataset)):
+        # Girdi: [i-look_back ... i-1] arasındaki tüm featurelar
+        X.append(dataset[i-look_back:i, :]) 
+        # Çıktı: i. gündeki HEDEF DEĞER (Sadece Max Temp - yani 0. indeks)
+        y.append(dataset[i, 0]) 
+    return np.array(X), np.array(y)
+
+def build_model(input_shape):
     model = Sequential()
     
     # 1. LSTM Katmanı
-    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
-    model.add(Dropout(0.2)) # Overfitting'i önlemek için
-    
-    # 2. LSTM Katmanı
-    model.add(LSTM(units=50, return_sequences=False))
+    model.add(LSTM(units=64, return_sequences=True, input_shape=input_shape))
     model.add(Dropout(0.2))
     
-    # Çıkış Katmanı
-    model.add(Dense(units=1)) # Tek bir değer (Sıcaklık) tahmin ediyoruz
+    # 2. LSTM Katmanı
+    model.add(LSTM(units=32, return_sequences=False))
+    model.add(Dropout(0.2))
+    
+    # Çıkış
+    model.add(Dense(units=1)) # Tek bir sıcaklık değeri tahmin et
     
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
-# Ana Akış
 if __name__ == "__main__":
-    print("--- LSTM Model Eğitimi Başlıyor ---")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, 'cities.csv')
     
-    # Veri
-    df = load_data('historical_data.csv')
+    # 1. Veri Hazırlığı
+    try:
+        scaled_data, scaler, dates = load_and_process_data(csv_path)
+    except FileNotFoundError:
+        print("HATA: 'cities.csv' dosyası bulunamadı! Lütfen dosyayı ai-model klasörüne yükleyin.")
+        exit(1)
+        
+    X, y = create_dataset(scaled_data, LOOK_BACK)
     
-    # Hazırlık
-    LOOK_BACK = 60 # Geçmiş 60 güne bakarak yarını tahmin et
-    X, y, scaler = preprocess_data(df, LOOK_BACK)
-    
-    # Eğitim/Test Ayrımı (%80 Eğitim, %20 Test)
+    # Eğitim/Test Ayrımı (%80 - %20)
     train_size = int(len(X) * 0.8)
     X_train, X_test = X[:train_size], X[train_size:]
     y_train, y_test = y[:train_size], y[train_size:]
     
-    # Model Kurulumu
-    model = create_model((X_train.shape[1], 1))
-    model.summary()
+    print(f"Eğitim Verisi: {X_train.shape}, Test Verisi: {X_test.shape}")
     
-    # Eğitim
-    print("Model eğitiliyor... (Bu işlem biraz sürebilir)")
-    history = model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test))
+    # 2. Model Kurulumu
+    model = build_model((X_train.shape[1], X_train.shape[2]))
     
-    # Kaydetme
-    model.save('weather_lstm_model.keras')
-    print("Model 'weather_lstm_model.keras' olarak kaydedildi.")
+    # 3. Eğitim
+    print(f"\nModel eğitiliyor ({CITY_NAME})...")
+    history = model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=(X_test, y_test), verbose=1)
     
-    # Test Tahmini
-    predictions = model.predict(X_test)
-    predictions = scaler.inverse_transform(predictions) # Normale çevir
-    y_test_real = scaler.inverse_transform(y_test.reshape(-1, 1))
+    # 4. Kaydetme
+    model_path = os.path.join(current_dir, f'weather_lstm_{CITY_NAME.lower()}.keras')
+    model.save(model_path)
+    print(f"\nModel başarıyla kaydedildi: {model_path}")
     
-    # Basit bir görselleştirme (Terminalde göremesek de kodda bulunsun)
-    # plt.plot(y_test_real, color='red', label='Gerçek Sıcaklık')
-    # plt.plot(predictions, color='blue', label='Tahmin Edilen')
-    # plt.legend()
-    # plt.show()
+    # 5. Test ve Görselleştirme (Konsol Çıktısı)
+    train_loss = history.history['loss'][-1]
+    val_loss = history.history['val_loss'][-1]
+    print(f"\nSon Eğitim Hatası (Loss): {train_loss:.5f}")
+    print(f"Son Doğrulama Hatası (Val Loss): {val_loss:.5f}")
     
-    print("Eğitim Tamamlandı.")
+    print("\n--- Model Kullanıma Hazır ---")
