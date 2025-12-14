@@ -57,6 +57,24 @@ export class ChatService {
             }
         }
 
+        if (lowerMsg.includes('hastalık') || lowerMsg.includes('mantar')) {
+            const disease = today.analysis.disease_risk;
+            if (disease.level === 'HIGH' || disease.level === 'MEDIUM') {
+                return `⚠️ DİKKAT: ${disease.message} Nemli hava mantar riskini artırıyor. Önleyici tedbir almalısınız.`;
+            } else {
+                return 'Mantar gibi nem kaynaklı hastalıklar için risk şu an düşük seviyede.';
+            }
+        }
+
+        if (lowerMsg.includes('yapay zeka') || lowerMsg.includes('ai') || lowerMsg.includes('tahmin') || lowerMsg.includes('trend') || lowerMsg.includes('model')) {
+            const ai = today.analysis.ai_prediction;
+            if (ai) {
+                return `🤖 Yapay Zeka Modelim Analizi: "${ai.message}"\nTahmin edilen sıcaklık: ${ai.value.toFixed(1)}°C.`;
+            } else {
+                return 'Yapay zeka modeline şu an erişilemiyor veya bu şehir için aktif değil.';
+            }
+        }
+
         if (lowerMsg.includes('yarın')) {
             return `Yarın hava ${tomorrow.weather.description}, sıcaklık gün içinde ${tomorrow.weather.temp.day}°C civarında olacak.`;
         }

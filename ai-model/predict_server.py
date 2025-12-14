@@ -85,7 +85,7 @@ def predict():
             'prediction_type': 'Max Temp (LSTM) + Trend',
             'value': float(f"{prediction_real:.2f}"),
             'unit': 'C',
-            'history': [float(f"{x:.1f}") for x in scaler.inverse_transform(last_30_days)[-7:, 0]],
+            'history': [float(f"{x:.1f}") for x in last_30_days[-7:, 0]],
             'message': final_message
         })
 

@@ -11,8 +11,12 @@ interface Message {
     text: string;
 }
 
-export default function ChatWidget() {
-    const [isOpen, setIsOpen] = useState(false);
+interface ChatWidgetProps {
+    embedded?: boolean;
+}
+
+export default function ChatWidget({ embedded = false }: ChatWidgetProps) {
+    const [isOpen, setIsOpen] = useState(embedded); // Embedded ise varsayılan açık
     const [messages, setMessages] = useState<Message[]>([
         { id: '1', sender: 'bot', text: 'Merhaba! Ben tarım asistanınızım. Size nasıl yardımcı olabilirim?' }
     ]);
@@ -47,11 +51,76 @@ export default function ChatWidget() {
         setInputValue('');
     };
 
+    // Render Logic for Embedded Mode
+    if (embedded) {
+        return (
+            <Card className="w-full h-[600px] shadow-sm border border-gray-200 flex flex-col bg-white">
+                <CardHeader className="bg-primary/5 border-b border-primary/10 p-4 flex flex-row items-center gap-3">
+                    <div className="bg-primary/20 p-2 rounded-lg">
+                        <MessageCircle className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-lg font-bold text-gray-900">Akıllı Tarım Asistanı</CardTitle>
+                        <p className="text-xs text-gray-500">7/24 Sorularınızı Cevaplar</p>
+                    </div>
+                </CardHeader>
+
+                <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
+                    {messages.map((msg) => (
+                        <div key={msg.id} className={cn(
+                            "flex w-full",
+                            msg.sender === 'user' ? "justify-end" : "justify-start"
+                        )}>
+                            <div className={cn(
+                                "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
+                                msg.sender === 'user'
+                                    ? "bg-primary text-primary-foreground rounded-br-none"
+                                    : "bg-white border border-gray-200 text-gray-800 rounded-bl-none"
+                            )}>
+                                {msg.text}
+                            </div>
+                        </div>
+                    ))}
+                    {mutation.isPending && (
+                        <div className="flex justify-start animate-pulse">
+                            <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm text-sm text-gray-500">
+                                Yazıyor...
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </CardContent>
+
+                <CardFooter className="p-4 bg-white border-t border-gray-100">
+                    <div className="flex w-full gap-3">
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                            placeholder="Örn: Yarın don var mı? Mantar riski nedir?"
+                            className="flex-1 text-sm px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-gray-50 focus:bg-white"
+                        />
+                        <button
+                            onClick={handleSend}
+                            disabled={!inputValue.trim() || mutation.isPending}
+                            className="bg-primary text-primary-foreground px-6 py-2 rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-all font-medium flex items-center gap-2"
+                        >
+                            <span>Gönder</span>
+                            <Send className="w-4 h-4" />
+                        </button>
+                    </div>
+                </CardFooter>
+            </Card>
+        );
+    }
+
+    // Existing Popup Mode
     return (
         <div className="fixed bottom-6 right-6 z-50">
             {/* Chat Window */}
             {isOpen && (
-                <Card className="absolute bottom-16 right-0 w-80 sm:w-96 shadow-xl border border-gray-200 animate-in slide-in-from-bottom-5 fade-in duration-300 flex flex-col h-[500px]">
+                <Card className="absolute bottom-16 right-0 w-80 sm:w-96 shadow-xl border border-gray-200 animate-in slide-in-from-bottom-5 fade-in duration-300 flex flex-col h-[500px] z-50">
                     <CardHeader className="bg-primary text-primary-foreground p-4 flex flex-row justify-between items-center rounded-t-xl">
                         <div className="flex items-center gap-2">
                             <MessageCircle className="w-5 h-5" />
@@ -80,12 +149,8 @@ export default function ChatWidget() {
                         ))}
                         {mutation.isPending && (
                             <div className="flex justify-start">
-                                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-2 shadow-sm">
-                                    <div className="flex gap-1">
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                    </div>
+                                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-2 shadow-sm text-xs text-gray-500">
+                                    ...
                                 </div>
                             </div>
                         )}
