@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
+console.log('Server starting... Loading environment.');
 dotenv.config();
 
 import weatherRoutes from './routes/weather';
