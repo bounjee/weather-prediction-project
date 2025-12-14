@@ -83,6 +83,37 @@ export default function Dashboard() {
 
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
+                {/* Prediction Summary Banner */}
+                {weatherData && (
+                    <div className={`p-6 rounded-xl border-l-8 text-white shadow-md flex items-start gap-4 ${!weatherData.forecast[0].analysis.planting_status.suitable || weatherData.forecast[0].analysis.frost_risk.level !== 'NONE'
+                            ? 'bg-gradient-to-r from-red-600 to-red-500 border-red-800'
+                            : 'bg-gradient-to-r from-green-600 to-green-500 border-green-800'
+                        }`}>
+                        <div className="bg-white/20 p-3 rounded-full">
+                            {(!weatherData.forecast[0].analysis.planting_status.suitable || weatherData.forecast[0].analysis.frost_risk.level !== 'NONE')
+                                ? <AlertCircle className="w-8 h-8 text-white" />
+                                : <Sprout className="w-8 h-8 text-white" />
+                            }
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold mb-1">
+                                {(!weatherData.forecast[0].analysis.planting_status.suitable || weatherData.forecast[0].analysis.frost_risk.level !== 'NONE')
+                                    ? 'Tarımsal Faaliyetler İçin Kritik Risk!'
+                                    : 'Tarımsal Faaliyetler İçin Uygun Koşullar'
+                                }
+                            </h2>
+                            <p className="text-white/90 text-sm opacity-90">
+                                {(!weatherData.forecast[0].analysis.planting_status.suitable)
+                                    ? `Bugün ekim yapılması önerilmiyor: ${weatherData.forecast[0].analysis.planting_status.message}`
+                                    : weatherData.forecast[0].analysis.frost_risk.level !== 'NONE'
+                                        ? `Don riski mevcut: ${weatherData.forecast[0].analysis.frost_risk.message}`
+                                        : 'Bugün hava koşulları ekim, gübreleme ve ilaçlama için elverişli görünüyor.'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Daily Forecast Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {weatherData?.forecast.map((day, index) => {
