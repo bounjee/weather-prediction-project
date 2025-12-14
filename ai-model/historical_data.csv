@@ -1,0 +1,5 @@
+Date,Temp_Max,Temp_Min,Humidity,Precipitation,Wind_Speed
+2020-01-01,5.2,-2.1,85,0.0,12.0
+2020-01-02,4.8,-1.5,82,0.2,10.5
+2020-01-03,6.1,-0.8,78,0.0,8.2
+# ... (Bu dosya gerçek verilerle doldurulmalı, şimdilik header ve örnek satırlar var)
