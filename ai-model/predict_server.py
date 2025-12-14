@@ -58,18 +58,35 @@ def predict():
         prediction_scaled = model.predict(input_data)
         
         # Ters ölçekleme (0-1 arasından gerçek dereceye dön)
-        # Scaler 3 kolonlu fit edildiği için, inverse transform da 3 kolon ister.
-        # Hile: Diğer kolonlara 0 verip sadece ilk kolonu (max temp) alucağız.
         placeholder = np.zeros((1, len(FEATURE_COLS)))
         placeholder[:, 0] = prediction_scaled[0, 0]
         prediction_real = scaler.inverse_transform(placeholder)[0, 0]
         
+        # Trend Analizi (Son 3 günün ortalamasına göre)
+        last_3_days_real = scaler.inverse_transform(last_30_days)[-3:]
+        avg_temp_last_3 = np.mean(last_3_days_real[:, 0]) # Temp sütunu 0
+        avg_hum_last_3 = np.mean(last_3_days_real[:, 2]) # Humidity sütunu 2 (FEATURE_COLS sırasına göre)
+        
+        insight = ""
+        if prediction_real < avg_temp_last_3 - 2:
+            insight += "Sıcaklıklarda düşüş trendi var, don riskine dikkat edilmeli. "
+        elif prediction_real > avg_temp_last_3 + 2:
+            insight += "Sıcaklık artış eğiliminde. "
+            
+        if avg_hum_last_3 > 70:
+             insight += "Son günlerde nem yüksek, mantar riski artabilir."
+        elif avg_hum_last_3 < 40:
+             insight += "Hava kuru, sulama ihtiyacı olabilir."
+             
+        final_message = f"Beklenen: {prediction_real:.1f}°C. {insight}"
+
         return jsonify({
             'city': CITY_NAME,
-            'prediction_type': 'Max Temp (LSTM)',
+            'prediction_type': 'Max Temp (LSTM) + Trend',
             'value': float(f"{prediction_real:.2f}"),
             'unit': 'C',
-            'history': [float(f"{x:.1f}") for x in scaler.inverse_transform(last_30_days)[-7:, 0]] # Son 7 günün gerçek verisi
+            'history': [float(f"{x:.1f}") for x in scaler.inverse_transform(last_30_days)[-7:, 0]],
+            'message': final_message
         })
 
     except Exception as e:
