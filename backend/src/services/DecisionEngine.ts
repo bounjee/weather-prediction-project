@@ -1,4 +1,4 @@
-import { WeatherData, AgroAnalysis } from './types';
+import { WeatherData, AgroAnalysis } from '../types';
 
 export class DecisionEngine {
 
