@@ -86,8 +86,8 @@ export default function Dashboard() {
                 {/* Prediction Summary Banner */}
                 {weatherData && (
                     <div className={`p-6 rounded-xl border-l-8 text-white shadow-md flex items-start gap-4 ${!weatherData.forecast[0].analysis.planting_status.suitable || weatherData.forecast[0].analysis.frost_risk.level !== 'NONE'
-                            ? 'bg-gradient-to-r from-red-600 to-red-500 border-red-800'
-                            : 'bg-gradient-to-r from-green-600 to-green-500 border-green-800'
+                        ? 'bg-gradient-to-r from-red-600 to-red-500 border-red-800'
+                        : 'bg-gradient-to-r from-green-600 to-green-500 border-green-800'
                         }`}>
                         <div className="bg-white/20 p-3 rounded-full">
                             {(!weatherData.forecast[0].analysis.planting_status.suitable || weatherData.forecast[0].analysis.frost_risk.level !== 'NONE')
@@ -243,6 +243,5 @@ export default function Dashboard() {
             {/* Chat Widget */}
             <ChatWidget />
         </div>
-    );
     );
 }
