@@ -15,18 +15,25 @@ export interface WeatherData {
 
 export interface AgroAnalysis {
     frost_risk: {
-        level: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+        level: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
+        type?: 'WHITE_FROST' | 'BLACK_FROST';
         message: string;
     };
     planting_status: {
         suitable: boolean;
-        risk_factor: 'NONE' | 'COLD' | 'WET' | 'WINDY';
+        risk_factor: 'NONE' | 'COLD' | 'WET' | 'WINDY' | 'GDD_LOW';
         message: string;
     };
     spraying_risk: {
         suitable: boolean;
+        delta_t?: number;
         message: string;
     };
+    disease_risk: {
+        level: 'LOW' | 'MEDIUM' | 'HIGH';
+        message: string;
+    };
+    gdd: number;
 }
 
 export interface DayForecast {
