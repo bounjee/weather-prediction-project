@@ -204,6 +204,12 @@ export default function Dashboard() {
                                     <p className="text-sm text-gray-600">
                                         {weatherData.forecast[0].analysis.frost_risk.message}
                                     </p>
+                                    {/* Black Frost Alert */}
+                                    {weatherData.forecast[0].analysis.frost_risk.type === 'BLACK_FROST' && (
+                                        <div className="mt-2 text-xs bg-black text-white px-2 py-1 rounded inline-block font-bold">
+                                            KARA DON RİSKİ
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -218,6 +224,12 @@ export default function Dashboard() {
                                     <p className="text-sm text-gray-600">
                                         {weatherData.forecast[0].analysis.planting_status.message}
                                     </p>
+                                    {/* GDD Info */}
+                                    {weatherData.forecast[0].analysis.gdd !== undefined && (
+                                        <p className="text-xs text-blue-600 mt-2 font-medium">
+                                            🌱 Büyüme Enerjisi (GDD): {weatherData.forecast[0].analysis.gdd}
+                                        </p>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -231,6 +243,20 @@ export default function Dashboard() {
                                 <CardContent>
                                     <p className="text-sm text-gray-600">
                                         {weatherData.forecast[0].analysis.spraying_risk.message}
+                                    </p>
+                                </CardContent>
+                            </Card>
+
+                            {/* Disease Risk Card */}
+                            <Card className={`border-l-4 ${weatherData.forecast[0].analysis.disease_risk?.level === 'LOW' ? 'border-l-green-500' : weatherData.forecast[0].analysis.disease_risk?.level === 'MEDIUM' ? 'border-l-yellow-500' : 'border-l-red-600'}`}>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <AlertCircle className="w-4 h-4" /> Mantar Hastalık Riski
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-gray-600">
+                                        {weatherData.forecast[0].analysis.disease_risk?.message || 'Veri yok.'}
                                     </p>
                                 </CardContent>
                             </Card>
