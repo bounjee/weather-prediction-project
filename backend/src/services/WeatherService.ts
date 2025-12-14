@@ -111,10 +111,32 @@ export class WeatherService {
             const dailyData = this.processForecastData(response.data.list);
 
             // 3. Analyze each day
-            return dailyData.slice(0, 3).map(weather => ({ // Take first 3 days
+            const forecasts = dailyData.slice(0, 3).map(weather => ({
                 weather,
                 analysis: DecisionEngine.analyze(weather)
             }));
+
+            // 4. (NEW) AI Prediction Integration (Only for Ankara)
+            if (city.toLowerCase() === 'ankara') {
+                try {
+                    console.log('Fetching AI Prediction for Ankara...');
+                    const aiResponse = await axios.post('http://127.0.0.1:5000/predict', {});
+                    if (forecasts.length > 0 && aiResponse.data) {
+                        // AI tahminini ilk günün analizine ekle (veya ayrı bir alan olarak dön)
+                        // Şimdilik AgroAnalysis içine 'ai_prediction' alanı eklemediğimiz için
+                        // 'gdd' alanına veya mesaja ekleyerek hile yapabiliriz, ya da type'ı güncelleyebiliriz.
+                        // En temizi type.ts'i güncellemektir ama hızlı çözüm için:
+                        forecasts[0].analysis.ai_prediction = {
+                            value: aiResponse.data.value,
+                            message: `Yapay Zeka (LSTM) Tahmini: ${aiResponse.data.value}°C`
+                        };
+                    }
+                } catch (aiError: any) {
+                    console.error('AI Service Connection Failed:', aiError.message ? aiError.message : 'Unknown Error');
+                }
+            }
+
+            return forecasts;
 
         } catch (error: any) {
             console.error('[WeatherService] API REQUEST FAILED.');
