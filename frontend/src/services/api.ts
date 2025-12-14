@@ -49,3 +49,8 @@ export const getWeather = async (city: string): Promise<WeatherResponse> => {
     const response = await api.get<WeatherResponse>(`/weather/${city}`);
     return response.data;
 };
+
+export const sendMessage = async (message: string, city: string): Promise<string> => {
+    const response = await api.post<{ response: string }>('/chat', { message, city });
+    return response.data.response;
+};

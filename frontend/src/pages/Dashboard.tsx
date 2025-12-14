@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CloudRain, Droplets, Thermometer, Wind, Sprout, SprayCan, Snowflake } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import ChatWidget from '@/components/ChatWidget';
 
 export default function Dashboard() {
     const city = localStorage.getItem('user_city') || 'Seçilmedi';
@@ -208,13 +209,9 @@ export default function Dashboard() {
 
             </main>
 
-            {/* Floating Chat Button Placeholder */}
-            <div className="fixed bottom-6 right-6 z-50">
-                <button className="bg-primary hover:bg-primary/90 text-white rounded-full p-4 shadow-lg flex items-center gap-2 transition-all hover:scale-105">
-                    <span className="font-bold text-lg">?</span>
-                    <span className="hidden md:inline font-medium">Asistana Sor</span>
-                </button>
-            </div>
+            {/* Chat Widget */}
+            <ChatWidget />
         </div>
+    );
     );
 }
