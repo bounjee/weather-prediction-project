@@ -40,6 +40,10 @@ export interface AgroAnalysis {
         message: string;
     };
     gdd?: number;
+    ai_prediction?: {
+        value: number;
+        message: string;
+    };
 }
 
 export interface DayForecast {

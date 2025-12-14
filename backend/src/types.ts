@@ -34,6 +34,11 @@ export interface AgroAnalysis {
         message: string;
     };
     gdd: number;
+    ai_prediction?: {
+        value: number;
+        message: string;
+        history?: number[];
+    };
 }
 
 export interface DayForecast {

@@ -260,6 +260,26 @@ export default function Dashboard() {
                                     </p>
                                 </CardContent>
                             </Card>
+
+                            {/* AI Prediction Card (NEW) */}
+                            {weatherData.forecast[0].analysis.ai_prediction && (
+                                <Card className="border-l-4 border-l-purple-600 bg-purple-50">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2 text-base text-purple-900">
+                                            <div className="bg-purple-200 p-1 rounded">🧠</div>
+                                            Yapay Zeka (LSTM) Tahmini
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-sm text-purple-800 font-medium">
+                                            {weatherData.forecast[0].analysis.ai_prediction.message}
+                                        </p>
+                                        <p className="text-xs text-purple-600 mt-1">
+                                            * Bu tahmin, Ankara için eğitilmiş LSTM Derin Öğrenme modeli tarafından oluşturulmuştur.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     )}
                 </section>

@@ -128,7 +128,8 @@ export class WeatherService {
                         // En temizi type.ts'i güncellemektir ama hızlı çözüm için:
                         forecasts[0].analysis.ai_prediction = {
                             value: aiResponse.data.value,
-                            message: `Yapay Zeka (LSTM) Tahmini: ${aiResponse.data.value}°C`
+                            message: `Yapay Zeka (LSTM) Tahmini: ${aiResponse.data.value}°C`,
+                            history: aiResponse.data.history || []
                         };
                     }
                 } catch (aiError: any) {
