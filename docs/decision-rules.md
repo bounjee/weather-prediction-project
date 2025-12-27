@@ -1,47 +1,76 @@
-# Tarımsal Karar Kuralları (Decision Rules)
+# 🌾 Tarımsal Karar Motoru Kuralları (Decision Rules)
 
-Sistem, ham hava durumu verilerini aşağıdaki deterministik kurallara göre işleyerek çiftçiye öneriler sunar. Bu kurallar literatürdeki genel tarımsal kabullere dayalı "Baseline" kurallardır.
+AgroWeatherAI, sadece hava tahmini yapmaz; bu verileri **Tarımsal Karar Motoru (Decision Engine)** ile işleyerek çiftçiye tavsiye verir. Bu belgede, sistemin "Riskli" veya "Uygun" kararına varırken kullandığı fiziksel ve biyolojik formüller yer almaktadır.
 
-## 1. Don Riski Hesaplama
-Bitkiler için en kritik risk faktörüdür.
+*Kaynak Kod Referansı:* `backend/src/services/DecisionEngine.ts`
 
-| Parametre | Koşul | Risk Seviyesi | Öneri |
-| :--- | :--- | :--- | :--- |
-| **Min. Sıcaklık** | T > 2°C | **Yok** | Risk görünmüyor. |
-| **Min. Sıcaklık** | 0°C < T ≤ 2°C | **Düşük** | Hafif don riski, hassas bitkilere dikkat. |
-| **Min. Sıcaklık** | -2°C < T ≤ 0°C | **Orta** | Don olayı bekleniyor, önlem alınmalı. |
-| **Min. Sıcaklık** | T ≤ -2°C | **Yüksek** | Şiddetli don (Zirai Don) bekleniyor! Acil önlem. |
+---
 
-## 2. Ekim Uygunluğu (Planting)
-Toprak ve hava koşullarının tohum ekimi için uygunluğu.
+## ❄️ 1. Don Riski Analizi (Frost Risk)
 
-| Parametreler | Koşul | Uygunluk | Açıklama |
-| :--- | :--- | :--- | :--- |
-| **Yağış & Rüzgar** | Yağış > 5mm **VEYA** Rüzgar > 20 km/s | **Uygun Değil** | Toprak çamur olabilir veya rüzgar tohumu/gübreyi savurabilir. |
-| **Sıcaklık** | T < 5°C | **Uygun Değil** | Toprak sıcaklığı çimlenme için yetersiz olabilir. |
-| **Genel** | Diğer tüm durumlar | **Uygun** | Hava koşulları ekim için elverişli görünüyor. |
+Don olayı sadece sıcaklığa bağlı değildir. Havadaki nem ve sıcaklık farkı (Dew Point) kritiktir.
 
-## 3. Sulama İhtiyacı
-Bitkinin su stresi ve doğal yağış beklentisi.
+### Kullanılan Metrikler:
+*   **Min Sıcaklık (T_min):** Günün en düşük sıcaklığı.
+*   **Çiy Noktası (Dew Point):** *Magnus Formülü* ile hesaplanır.
 
-| Parametreler | Koşul | Tavsiye | Açıklama |
-| :--- | :--- | :--- | :--- |
-| **Yağış** | Önümüzdeki 24s yağış olasılığı > %60 | **Ertele** | Yağmur bekleniyor, tasarruf yapın. |
-| **Toprak/Nem** | Nem > %85 | **Gerekli Değil** | Nem oranı çok yüksek, küf riski oluşabilir. |
-| **Sıcaklık** | T > 30°C **VE** Yağış Yok | **Gerekli** | Yüksek buharlaşma riski, sulama önerilir. |
-| **Genel** | Diğer Durumlar | **Kontrol** | Toprak nemini kontrol ederek karar verin. |
+### Karar Matrisi:
+| Durum | Koşul | Açıklama |
+| :--- | :--- | :--- |
+| 🔴 **YÜKSEK (Kara Don)** | `T_min ≤ 0°C` VE `DewPoint ≤ -3°C` | Hava çok kuru ve soğuk. Bitki özsuyu donar, buzlanma görünmez ama bitki ölür. En tehlikeli durum. |
+| 🟠 **ORTA (Beyaz Don)** | `T_min ≤ 2°C` | Bitki üzerinde beyaz buz kristalleri oluşur. |
+| 🟢 **DÜŞÜK** | `T_min > 2°C` | Risk yok. |
 
-## 4. İlaçlama (Serpme) Riski
-Rüzgarın ilacı sürüklemesi (drift) ve yağmurun ilacı yıkaması riski.
+---
 
-| Parametreler | Koşul | Risk | Açıklama |
-| :--- | :--- | :--- | :--- |
-| **Rüzgar** | Rüzgar > 15 km/s | **Yüksek** | İlaç sürüklenme riski (drift). Yapmayın. |
-| **Yağış** | 6 saat içinde yağış > %50 | **Yüksek** | İlacın yıkanma riski var. Yapmayın. |
-| **Sıcaklık** | T > 30°C | **Orta** | Bazı ilaçlar yüksek sıcaklıkta buharlaşabilir/yakabilir. |
-| **Genel** | Diğer durumlar | **Düşük** | İlaçlama için uygun pencere. |
+## 🌱 2. Ekim Uygunluk Analizi (Planting)
 
-## Belirsizlik İletişimi
-Sistem kesin konuşmaktan kaçınır ve olasılıkları belirtir:
-*   "Yağış olasılığı %60" -> "Yağmur beklentisi var."
-*   "Rüzgar 14 km/s" -> "Rüzgar sınırda, dikkatli olunmalı."
+Tohumun çimlenmesi için toprağın belli bir sıcaklık birikimine (ısı enerjisine) ihtiyacı vardır.
+
+### Kullanılan Metrikler:
+*   **GDD (Growing Degree Days):** Büyüme Derece Günleri.
+    *   *Formül:* `(T_max + T_min) / 2 - T_base`
+    *   *Taban Sıcaklık (T_base):* Genel tahıl/sebze için **10°C** kabul edilmiştir.
+*   **Toprak Tahmini:** `Hava Sıcaklığı - 3°C` (Basitleştirilmiş yaklaşım).
+
+### Karar Kuralları:
+*   ✅ **UYGUN:**
+    *   `GDD > 0` (Yeterli ısı birikimi var)
+    *   `Ortalama Sıcaklık > 5°C`
+    *   `Rüzgar < 30 km/s`
+    *   `Yağış < 5mm` (Toprak çamur değil)
+*   ❌ **RİSKLİ:** Yukarıdaki koşullardan biri sağlanmazsa.
+
+---
+
+## 🚜 3. İlaçlama Zamanlaması (Spraying)
+
+Zirai ilacın (pestisit) verimli olması için havada uçup gitmemesi (drift) ve hemen buharlaşmaması gerekir.
+
+### Kullanılan Metrikler:
+*   **Delta-T:** Yaş termometre ve kuru termometre sıcaklık farkı. İlacın damlacık ömrünü belirler.
+    *   *Hesap:* `Kuru Sıcaklık - Islak Sıcaklık (DewPoint)`
+
+### Karar Kuralları:
+*   ✅ **İDEAL:**
+    *   `2°C < Delta-T < 8°C` (Damlacık ne çok hızlı buharlaşır ne de yaprakta ıslak kalır).
+    *   `Rüzgar < 15 km/s` (İlaç komşu tarlaya sürüklenmez).
+    *   `Yağış İhtimali < %20` (İlaç yağmurla yıkanmaz).
+*   ❌ **UYGUN DEĞİL:** Rüzgarlı, yağmurlu veya çok sıcak/kuru (yüksek Delta-T) havalar.
+
+---
+
+## 🍄 4. Hastalık Riski (Disease)
+
+Mantar (Fungal) hastalıklar sıcak ve nemli ortamları sever.
+
+### Karar Kuralları:
+*   🔴 **YÜKSEK RİSK:**
+    *   `Nem > %80`
+    *   `Sıcaklık > 15°C`
+    *   `Yağış > 0mm` (Islaklık)
+*   🟢 **DÜŞÜK RİSK:** Kuru ve serin havalar.
+
+---
+
+*Not: Bu kurallar genel tarımsal literatüre dayanmaktadır. Ürüne özel (Örn: Sadece Domates için) özelleştirilebilir.*

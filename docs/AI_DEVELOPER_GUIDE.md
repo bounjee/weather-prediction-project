@@ -1,146 +1,104 @@
-# AgroWeather AI - Teknik Dokümantasyon ve Geliştirici Kılavuzu
+# 🛠️ AgroWeatherAI Geliştirici & Bakım Rehberi
 
-## 1. Proje Özeti
-**AgroWeather AI**, çiftçiler ve tarım uzmanları için geliştirilmiş, meteorolojik verileri yapay zeka destekli analizlerle birleştiren bir **Tarımsal Karar Destek Sistemidir (DSS)**.
-
-Bu sistem, standart hava durumu verilerini (OpenWeatherMap) alır, tarihsel verilerle eğitilmiş bir **LSTM (Long Short-Term Memory)** modelinden tahminler ekler ve kural tabanlı bir analiz motoru (Decision Engine) ile işleyerek çiftçiye "Don Riski", "Ekim Uygunluğu", "İlaçlama Zamanı" ve "Hastalık Riski" gibi kritik içgörüler sunar.
+Bu belge, projeyi devralacak veya bakımını yapacak yazılımcılar için hazırlanmıştır. Sistemin kurulumu, eğitimi ve tahmin sunucusunun yönetimi ile ilgili teknik adımları içerir.
 
 ---
 
-## 2. Sistem Mimarisi
+## 🏗️ Proje Yapısı
 
-Proje, 3 ana bileşenden oluşan mikro-servis benzeri bir mimariye sahiptir:
-
-1.  **Frontend (React + Vite):** Kullanıcı arayüzü ve dashboard.
-2.  **Backend (Node.js + Express):** API Gateway, OpenWeatherMap entegrasyonu ve kural tabanlı analiz motoru.
-3.  **AI Model Server (Python + Flask + TensorFlow):** LSTM tabanlı sıcaklık tahmin servisi.
-
-### Veri Akış Şeması
 ```
-[Kullanıcı] -> [Frontend (Dashboard)] -> [Backend (Node.js)] -> [OpenWeatherMap API (Anlık Veri)]
-                                                      |
-                                                      v
-                                            [AI Model Server (Python)] <- [Eğitilmiş .keras Modeli]
-                                                      |
-                                                      v
-[Kullanıcı] <- [Frontend] <- [Birleştirilmiş JSON Yanıtı (Forecast + AI Prediction + Analysis)]
+weather-predict/
+├── ai-model/               # Python & Yapay Zeka Katmanı
+│   ├── cities.csv          # Tarihsel hava durumu verisi
+│   ├── train_model.py      # Modeli eğiten script
+│   ├── predict_server.py   # Canlı tahmin sunucusu (Flask)
+│   ├── weather_lstm_*.keras # Eğitilmiş model dosyası
+│   └── scaler_*.joblib     # Veri normalizasyon dosyası
+│
+├── backend/                # Node.js API Katmanı
+│   ├── src/services/       # İş mantığı (WeatherService, ChatService)
+│   └── src/routes/         # API uç noktaları
+│
+└── frontend/               # React UI Katmanı
+    └── src/pages/          # Dashboard ve arayüzler
 ```
 
 ---
 
-## 3. Teknoloji Yığını (Tech Stack)
+## 🚀 1. AI Modeli Yönetimi (Python)
 
-### Frontend
-*   **Framework:** React 18, Vite
-*   **Dil:** TypeScript
-*   **Styling:** Tailwind CSS, Lucide React (İkonlar)
-*   **Charts:** Recharts (Grafik görselleştirme)
-*   **State Management:** React Query (TanStack Query) - (Veri çekme ve cache yönetimi için)
+### 🐍 Kurulum
+Gerekli kütüphaneleri yükleyin:
+```bash
+cd ai-model
+pip install -r requirements.txt
+```
 
-### Backend
-*   **Runtime:** Node.js
-*   **Framework:** Express.js
-*   **Dil:** TypeScript
-*   **External API:** OpenWeatherMap One Call API (veya 5 Day Forecast)
-*   **Core Logic:** `DecisionEngine.ts`, `ChatService.ts`
+### 🧠 Modeli Yeniden Eğitme
+Eğer `cities.csv` dosyasına yeni veri eklerseniz, modeli güncellemek için:
+```bash
+python train_model.py
+```
+Bu işlem sonucunda `weather_lstm_{sehir}.keras` ve `model_metrics.joblib` dosyaları güncellenir.
+*Not: Eğitim 100 epoch sürer ve Early Stopping mekanizması vardır.*
 
-### AI & Data Science
-*   **Dil:** Python 3.x
-*   **Framework:** Flask (API sunumu için)
-*   **ML Library:** TensorFlow / Keras
-*   **Model:** LSTM (Sequential) - 2 Katmanlı LSTM + Dropout
-*   **Veri İşleme:** Pandas, NumPy, Scikit-learn (MinMaxScaler)
-
----
-
-## 4. Kritik Tarımsal Analiz Mantığı (Algorithm Specifics)
-
-Backend'deki `DecisionEngine.ts` dosyası aşağıdaki kurallara göre analiz üretir:
-
-### A. Don Riski (Frost Risk)
-*   **Veri:** `temp_min` (Günlük en düşük sıcaklık)
-*   **Mantık:**
-    *   `< 0°C`: **YÜKSEK RİSK** (Don olayı kesin)
-    *   `0°C - 2°C`: **DÜŞÜK RİSK** (Kırağı olasılığı)
-    *   `> 2°C`: **RİSK YOK**
-*   **Uyarı:** Çiftçiye sulama veya örtü altı önlemleri önerilir.
-
-### B. Ekim Uygunluğu (Planting Suitability)
-*   **Veri:** `temp_max`, `rain` (yağış)
-*   **Mantık:**
-    *   `Yağmur Var mı?`: Evet ise -> **UYGUN DEĞİL** (Çamur riski)
-    *   `Sıcaklık < 10°C`: **UYGUN DEĞİL** (Toprak soğuk, çimlenme olmaz)
-    *   `Sıcaklık 15-25°C` VE `Yağış Yok`: **İDEAL / UYGUN**
-
-### C. İlaçlama Durumu (Spraying Conditions)
-*   **Veri:** `wind_speed` (Rüzgar hızı), `rain`
-*   **Mantık:**
-    *   `Rüzgar > 15 km/s`: **RİSKLİ** (İlaç sürüklenmesi / Drift riski)
-    *   `Yağmur Var mı?`: Evet ise -> **RİSKLİ** (İlaç yıkanır, etkisi kaybolur)
-    *   Diğer Durumlar: **YAPILABİLİR**
-
-### D. Mantar/Hastalık Riski (Disease Risk)
-*   **Veri:** `humidity` (Nem), `temp_max`
-*   **Mantık:**
-    *   `Nem > %80` VE `Sıcaklık > 20°C`: **YÜKSEK RİSK** (Nemli ve sıcak ortam mantar sporlarını tetikler)
+### 🔮 Tahmin Sunucusunu Başlatma
+Frontend ve Backend'in tahmin alabilmesi için bu sunucu sürekli çalışmalıdır:
+```bash
+python predict_server.py
+```
+*Port:* 5000
 
 ---
 
-## 5. Yapay Zeka Modeli (AI Model Specifications)
+## 🌐 2. Web Uygulaması Yönetimi (JS/TS)
 
-Sistemde kullanılan model, zaman serisi tahmini (Time Series Forecasting) için özel olarak eğitilmiştir.
+### 🔙 Backend (API)
+Tarım ve risk hesaplama motoru buradadır.
+```bash
+cd backend
+npm install
+npm run dev
+```
+*Port:* 3000
 
-*   **Model Tipi:** LSTM (Long Short-Term Memory)
-*   **Eğitim Verisi:** 2020-2024 yılları arasındaki Ankara/Türkiye günlük hava durumu verileri.
-*   **Öznitelikler (Features):**
-    1.  `Max Temp` (Günlük En Yüksek Sıcaklık)
-    2.  `Min Temp` (Günlük En Düşük Sıcaklık)
-    3.  `Humidity` (Ortalama Nem)
-*   **Pencere Boyutu (Lookback):** 30 Gün (Model, geçmiş 30 güne bakarak yarını tahmin eder).
-*   **Girdi Şekli:** `(Batch_Size, 30, 3)`
-*   **Çıktı:** Skaler değer (Yarının Sıcaklığı - Max Temp)
-
-### API Entegrasyonu
-Python sunucusu `/predict` endpoint'inde çalışır.
-*   **Input:** Yok (Şimdilik statik dataset üzerinden son 30 günü alır).
-*   **Output:**
-    ```json
-    {
-        "prediction_type": "LSTM",
-        "value": 15.4,
-        "history": [12.1, 13.5, ...], // Son 7 gün grafiği için
-        "message": "Sıcaklık düşüş trendinde..."
-    }
-    ```
+### 🎨 Frontend (UI)
+Kullanıcı arayüzü.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*Port:* 5173
 
 ---
 
-## 6. Chatbot (Akıllı Asistan) Yetenekleri
+## ⚠️ Kritik Sistem Mantığı (ÖNEMLİ)
 
-`ChatService.ts` projenin beynidir. Sadece "Merhaba" diyen bir bot değil, veriye dayalı bir asistandır.
+### Akıllı Mevsimsel Hafıza (Smart Seasonal Memory)
+Sistem gerçek tarihli bir tahmin yaparken şu mantığı izler (`predict_server.py`):
+1.  Bugünün tarihine bakar (Örn: 27 Aralık).
+2.  CSV dosyasında geçmiş yıllara (2023, 2024...) giderek **aynı tarih aralığındaki** (28 Eylül - 27 Aralık) en temiz veriyi bulur.
+3.  Modelin **girdi penceresi (Last 90 Days)** olarak bu geçmiş veriyi kullanır.
+4.  Böylece LSTM modeli, "Aralık sonunda hava nasıl davranır?" sorusunu o mevsimin gerçek verisiyle cevaplar.
 
-*   **Intent Recognition (Niyet Analizi):**
-    *   Kullanıcı *"don riski var mı?"* dediğinde -> `Intent: FROST`
-    *   Kullanıcı *"ilaç atabilir miyim?"* dediğinde -> `Intent: SPRAYING`
-    *   Kullanıcı *"yapay zeka ne diyor?"* dediğinde -> `Intent: AI_PREDICTION`
-*   **Context-Aware Responses:**
-    *   Asistan, o anki `AgroAnalysis` sonucuna bakar.
-    *   Eğer analizde "Don Riski: YÜKSEK" ise ve kullanıcı bunu sorarsa, *"Evet, ne yazık ki yüksek don riski var, önlem almalısınız"* der. Ezbere konuşmaz.
-
----
-
-## 7. Dosya Yapısı & Kritik Dosyalar
-
-*   `frontend/src/pages/Dashboard.tsx`: Ana ekran, tüm kartların ve grafiklerin olduğu yer. Full-Width AI kartı burada.
-*   `backend/src/services/DecisionEngine.ts`: Tüm if-else tarım kurallarının olduğu dosya.
-*   `backend/src/services/ChatService.ts`: Chatbot mantığı.
-*   `ai-model/predict_server.py`: Python Flask sunucusu ve modelin çalıştırıldığı yer.
-*   `ai-model/train_model.py`: Modelin eğitim scripti.
+### Mock Veri Yok!
+Projeden tüm mock (sahte) veriler temizlenmiştir.
+- Gördüğünüz tahminler %100 AI modeli çıktısıdır.
+- Gördüğünüz riskler (Don, Ekim) %100 fiziksel formül hesabıdır.
 
 ---
 
-## 8. Gelecek Geliştirme Önerileri (Future Work)
+## 🐛 Sık Karşılaşılan Hatalar & Çözümler
 
-1.  **Multi-Location Support:** Şu an model sadece "Ankara" verisiyle eğitildi. Her şehir için ayrı `.keras` modelleri eğitilip, `/predict` endpoint'ine `city` parametresi gönderilmeli.
-2.  **Gelişmiş GDD (Growing Degree Days) Hesabı:** Bitki tipine özel (Bugday, Mısır vs.) büyüme takvimi eklenebilir.
-3.  **Kullanıcı Geri Bildirimi:** Çiftçinin "Bugün yağmur yağdı/yağmadı" onayı ile modelin online-learning yapması sağlanabilir.
+**1. Hata:** `AI Service Failed (500)`
+*   **Sebep:** `predict_server.py` çalışmıyor olabilir.
+*   **Çözüm:** Python sunucusunu yeniden başlatın.
+
+**2. Hata:** Tahminler çok sabit görünüyor.
+*   **Sebep:** Model girdisi (Input Window) değişmiyor olabilir.
+*   **Çözüm:** `cities.csv` kontrol edilmeli, tarih formatlarının `YYYY-MM-DD` olduğundan emin olunmalı.
+
+**3. Hata:** "Model hazır değil" uyarısı.
+*   **Sebep:** `.keras` veya `.joblib` dosyaları silinmiş.
+*   **Çözüm:** `train_model.py` çalıştırılarak model tekrar oluşturulmalı.
