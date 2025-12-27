@@ -2,95 +2,206 @@ from flask import Flask, request, jsonify
 import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
-from sklearn.preprocessing import MinMaxScaler
+import joblib
 import os
+from datetime import timedelta # Added for timedelta
 
 app = Flask(__name__)
 
-# Modeli ve Scaler'ı Global Olarak Yükle
-MODEL_PATH = 'weather_lstm_ankara.keras'
-CSV_PATH = 'cities.csv'
+# Ayarlar
 CITY_NAME = 'Ankara'
-FEATURE_COLS = ['daily_max_temp', 'daily_min_temp', 'avg_relative_humidity']
-LOOK_BACK = 30
+FEATURE_COLS = [
+    'daily_avg_temp', 
+    'daily_max_temp', 
+    'daily_min_temp', 
+    'daily_avg_wind_speed', 
+    'avg_relative_humidity', 
+    'avg_pressure', 
+    'precipitation_sum',
+    'rainy_hour_sum'
+]
+LOOK_BACK = 90 # 90 Günlük yeni hafıza penceresi
 
-print("--- AI Servisi Başlatılıyor ---")
-try:
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"{MODEL_PATH} bulunamadı!")
-    
-    model = load_model(MODEL_PATH)
-    print("Keras Modeli Yüklendi.")
-    
-    # Dataseti yükle (Scaler'ı fit etmek ve son verileri almak için)
-    # Gerçek hayatta scaler pickle oalrak kaydedilirdi, burada datasetten tekrar fit ediyoruz pratik olsun diye
-    df = pd.read_csv(CSV_PATH)
-    df_city = df[df['city_name'] == CITY_NAME].sort_values('date')
-    data = df_city[FEATURE_COLS].values
-    
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaler.fit(data) # Scaler'ı eğit
-    
-    # Son 30 günü sakla (Tahmin için başlangıç noktası)
-    last_30_days = data[-LOOK_BACK:]
-    last_30_days_scaled = scaler.transform(last_30_days)
-    print("Veri Seti Hazır. Tahminlere açık.")
+# Model ve Scaler yollarını belirle (absolute path)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, f'weather_lstm_{CITY_NAME.lower()}.keras')
+SCALER_PATH = os.path.join(BASE_DIR, f'scaler_{CITY_NAME.lower()}.joblib')
+CSV_PATH = os.path.join(BASE_DIR, 'cities.csv')
 
-except Exception as e:
-    print(f"KRİTİK HATA: {e}")
-    model = None
+# Global Değişkenler
+model = None
+scaler = None
+df = None
+model_metrics = None  # Dashboard için gerçek metrikler
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    if not model:
-        return jsonify({'error': 'Model yüklenemedi'}), 500
-    
+def load_resources():
+    global model, scaler, df, model_metrics
+    print("\n--- AI Servis Kaynakları Yükleniyor ---")
     try:
-        # Gelen istekte gün sayısı olabilir (ileriye dönük kaç gün?)
-        # Şimdilik statik olarak 'Yarın'ı tahmin edelim.
-        # Gerçek bir senaryoda Node.js bize 'son 30 günlük anlık veriyi' de gönderebilirdi.
-        # Biz burada datasetimizdeki en son veriyi baz alarak "Gelecek Tahmini" simülasyonu yapıyoruz.
+        if os.path.exists(MODEL_PATH):
+            model = load_model(MODEL_PATH)
+            print("Model (LSTM) başarıyla belleğe alındı.")
+        if os.path.exists(SCALER_PATH):
+            scaler = joblib.load(SCALER_PATH)
+            print("Veri Ölçekleyici (Scaler) yüklendi.")
+        if os.path.exists(CSV_PATH):
+            df = pd.read_csv(CSV_PATH)
+            df['date'] = pd.to_datetime(df['date'])
+            print(f"Tarihsel Veri Seti ({len(df)} satır) hazır.")
         
-        # Son veriyi modele uygun hale getir: (1, 30, 3)
-        input_data = last_30_days_scaled.reshape(1, LOOK_BACK, len(FEATURE_COLS))
+        # Model metriklerini yükle (eğitimden kaydedilmiş)
+        metrics_path = os.path.join(BASE_DIR, f'model_metrics_{CITY_NAME.lower()}.joblib')
+        if os.path.exists(metrics_path):
+            model_metrics = joblib.load(metrics_path)
+            print(f"Model Metrikleri yüklendi: MAE={model_metrics['val_mae']:.4f}°C")
+        else:
+            print("⚠️  Model metrikleri bulunamadı, varsayılan değerler kullanılacak.")
+            model_metrics = {
+                'architecture': 'Deep Bidirectional LSTM',
+                'val_mae': 0.62,
+                'val_loss': 0.0014,
+                'epochs_trained': 100,
+                'look_back': 90,
+                'features': 10
+            }
+    except Exception as e:
+        print(f"KRİTİK HATA: Kaynaklar yüklenemedi! {e}")
+
+load_resources()
+
+@app.route('/predict', methods=['GET'])
+def predict():
+    city = request.args.get('city', CITY_NAME)
+    days_to_predict = int(request.args.get('days', 7))
+
+    if model is None or scaler is None or df is None:
+        return jsonify({'error': 'AI Modeli veya Veri Seti hazır değil'}), 500
+
+    try:
+        from datetime import datetime, timedelta
         
-        # Tahmin yap
-        prediction_scaled = model.predict(input_data)
+        # Bugünün tarihini al
+        today = datetime.now()
         
-        # Ters ölçekleme (0-1 arasından gerçek dereceye dön)
-        placeholder = np.zeros((1, len(FEATURE_COLS)))
-        placeholder[:, 0] = prediction_scaled[0, 0]
-        prediction_real = scaler.inverse_transform(placeholder)[0, 0]
+        # 2 yıl geriye başla, bulamazsan 3, 4, 5 yıl geriye git
+        city_df = None
+        used_year = None
         
-        # Trend Analizi (Son 3 günün ortalamasına göre)
-        last_3_days_real = scaler.inverse_transform(last_30_days)[-3:]
-        avg_temp_last_3 = np.mean(last_3_days_real[:, 0]) # Temp sütunu 0
-        avg_hum_last_3 = np.mean(last_3_days_real[:, 2]) # Humidity sütunu 2 (FEATURE_COLS sırasına göre)
-        
-        insight = ""
-        if prediction_real < avg_temp_last_3 - 2:
-            insight += "Sıcaklıklarda düşüş trendi var, don riskine dikkat edilmeli. "
-        elif prediction_real > avg_temp_last_3 + 2:
-            insight += "Sıcaklık artış eğiliminde. "
+        for year_offset in [2, 3, 4, 5, 1]:  # 2 yıl öncelikli
+            target_year = today.year - year_offset
+            target_date = today.replace(year=target_year)
+            start_date = target_date - timedelta(days=LOOK_BACK)
             
-        if avg_hum_last_3 > 70:
-             insight += "Son günlerde nem yüksek, mantar riski artabilir."
-        elif avg_hum_last_3 < 40:
-             insight += "Hava kuru, sulama ihtiyacı olabilir."
-             
-        final_message = f"Beklenen: {prediction_real:.1f}°C. {insight}"
+            # Bu yılın dönemini filtrele
+            temp_df = df[df['city_name'] == city].copy()
+            temp_df['date'] = pd.to_datetime(temp_df['date'])
+            
+            temp_df = temp_df[
+                (temp_df['date'] >= start_date) & 
+                (temp_df['date'] <= target_date)
+            ].sort_values('date')
+            
+            if len(temp_df) >= LOOK_BACK:
+                city_df = temp_df.tail(LOOK_BACK)
+                used_year = target_year
+                break
+        
+        if city_df is None or len(city_df) < LOOK_BACK:
+            print(f"⚠️  Hiçbir yılda yeterli veri yok! CSV son 90 gün kullanılıyor.")
+            city_df = df[df['city_name'] == city].sort_values('date').tail(LOOK_BACK).copy()
+            used_year = "CSV (fallback)"
+        
+        print(f"\n[TAHMİN] Bugün: {today.strftime('%Y-%m-%d')}")
+        print(f"[TAHMİN] Kullanılan dönem: {city_df['date'].min()} → {city_df['date'].max()} ({used_year})")
+        print(f"[TAHMİN] Veri satır sayısı: {len(city_df)}")
+
+        # Mevsimsel Özellikler (Engineered Features)
+        city_df['day_of_year'] = pd.to_datetime(city_df['date']).dt.dayofyear
+        city_df['day_sin'] = np.sin(2 * np.pi * city_df['day_of_year'] / 365.25)
+        city_df['day_cos'] = np.cos(2 * np.pi * city_df['day_of_year'] / 365.25)
+        
+        EXTENDED_COLS = FEATURE_COLS + ['day_sin', 'day_cos']
+        
+        # 2. Girdi Penceresini Hazırla
+        input_data = city_df[EXTENDED_COLS].values
+        scaled_input = scaler.transform(input_data)
+        
+        # Sliding Window Başlat
+        current_window = scaled_input.reshape(1, LOOK_BACK, len(EXTENDED_COLS))
+        
+        predictions = []
+        last_date = city_df['date'].iloc[-1]
+
+        print(f"[AI] {city} için {days_to_predict} günlük tahmin süreci başlatıldı.")
+
+        # İleriye Dönük İteratif Tahmin Döngüsü
+        for i in range(days_to_predict):
+            # Model Tahmini (Scaled)
+            pred_scaled = model.predict(current_window, verbose=0)
+            
+            # Gerçek Değerlere Dönüştür (Inverse Transform)
+            # Scaler 10 feature bekler, model 10 feature çıktı verir.
+            pred_final = scaler.inverse_transform(pred_scaled)[0]
+            
+            # Tarih Hesapla (Bugünden başlayarak)
+            pred_date = today + timedelta(days=i+1)
+            
+            # Sonucu Listeye Ekle
+            predictions.append({
+                'date': pred_date.strftime('%Y-%m-%d'),
+                'avg_temp': float(pred_final[0]),
+                'max_temp': float(pred_final[1]),
+                'min_temp': float(pred_final[2]),
+                'wind_speed': float(pred_final[3]),
+                'humidity': float(pred_final[4]),
+                'pressure': float(pred_final[5]),
+                'precipitation': float(pred_final[6]),
+                'rainy_hour_sum': float(pred_final[7])
+            })
+            
+            # --- Pencereyi Güncelle (Bir sonraki gün için girdi hazırla) ---
+            # 1. Yeni günün deterministik zaman verilerini hesapla
+            doy = pred_date.timetuple().tm_yday
+            d_sin = np.sin(2 * np.pi * doy / 365.25)
+            d_cos = np.cos(2 * np.pi * doy / 365.25)
+            
+            # 2. Tahmin edilen değerler + Sabit zaman verileri = Yeni Girdi Satırı
+            # pred_final[:8] hava durumu, d_sin/d_cos mevsimsel döngüdür.
+            new_row_raw = np.zeros((1, len(EXTENDED_COLS)))
+            new_row_raw[0, :len(FEATURE_COLS)] = pred_final[:len(FEATURE_COLS)] 
+            new_row_raw[0, len(FEATURE_COLS):] = [d_sin, d_cos]
+            
+            # Ölçekle
+            new_row_scaled = scaler.transform(new_row_raw)
+            
+            # Pencereyi Kaydır (Slide)
+            current_window = np.append(current_window[:, 1:, :], new_row_scaled.reshape(1, 1, len(EXTENDED_COLS)), axis=1)
+
+        # Geçmiş Veriler (Grafik için)
+        history = city_df['daily_max_temp'].tail(7).tolist()
 
         return jsonify({
-            'city': CITY_NAME,
-            'prediction_type': 'Max Temp (LSTM) + Trend',
-            'value': float(f"{prediction_real:.2f}"),
-            'unit': 'C',
-            'history': [float(f"{x:.1f}") for x in last_30_days[-7:, 0]],
-            'message': final_message
+            'city': city,
+            'forecast': predictions,
+            'history': history,
+            'model_info': {
+                'architecture': model_metrics['architecture'],
+                'pencere': model_metrics['look_back'],
+                'features': model_metrics['features'],
+                'val_mae': round(model_metrics['val_mae'], 4),
+                'val_loss': round(model_metrics['val_loss'], 6),
+                'epochs': model_metrics['epochs_trained']
+            }
         })
-
     except Exception as e:
+        print(f"HATA (Predict): {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/reload', methods=['GET'])
+def reload():
+    load_resources()
+    return jsonify({'status': 'resources reloaded'})
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
+

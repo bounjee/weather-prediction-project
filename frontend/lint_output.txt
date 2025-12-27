@@ -1,0 +1,40 @@
+
+C:\Users\musta\Desktop\weather-predict\frontend\src\components\ui\badge.tsx
+  39:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\musta\Desktop\weather-predict\frontend\src\pages\Dashboard.tsx
+  100:39  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  113:15  error  'isSun' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  202:38  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\musta\Desktop\weather-predict\frontend\src\pages\Dashboard.tsx:202:38
+  200 |                                 </span>
+  201 |                                 <div className="pb-4">
+> 202 |                                     <WeatherIcon
+      |                                      ^^^^^^^^^^^ This component is created during render
+  203 |                                         iconCode={weatherData.forecast[0].weather.icon}
+  204 |                                         className="w-24 h-24 text-yellow-400 drop-shadow-lg"
+  205 |                                     />
+
+C:\Users\musta\Desktop\weather-predict\frontend\src\pages\Dashboard.tsx:99:25
+   97 |
+   98 |     // Helper for weather icon
+>  99 |     const WeatherIcon = ({ iconCode, className }: { iconCode: string, className?: string }) => {
+      |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 100 |         const iconMap: Record<string, any> = {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 101 |             '01d': Sun, '01n': Sun,
+      ÔÇĞ
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 126 |         );
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 127 |     };
+      | ^^^^^^ The component is created during render here
+  128 |
+  129 |     const today = new Date();
+  130 |     const formattedDate = today.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });  react-hooks/static-components
+
+Ô£û 4 problems (4 errors, 0 warnings)
+

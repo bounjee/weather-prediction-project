@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({
-    baseURL: 'http://localhost:3000/api',
-});
+const API_BASE = 'http://localhost:3000/api';
 
 export interface WeatherData {
     date: string;
@@ -16,6 +14,7 @@ export interface WeatherData {
     wind_speed: number;
     description: string;
     precipitation_prob: number;
+    pressure: number;
     icon: string;
 }
 
@@ -52,17 +51,28 @@ export interface DayForecast {
     analysis: AgroAnalysis;
 }
 
+export interface ModelInfo {
+    architecture: string;
+    pencere: number;
+    features: number;
+    val_mae: number;
+    val_loss: number;
+    epochs: number;
+}
+
 export interface WeatherResponse {
     city: string;
     forecast: DayForecast[];
+    model_info?: ModelInfo;
 }
 
 export const getWeather = async (city: string): Promise<WeatherResponse> => {
-    const response = await api.get<WeatherResponse>(`/weather/${city}`);
-    return response.data;
+    const response = await fetch(`${API_BASE}/weather/${city}`);
+    if (!response.ok) throw new Error('Weather data fetch failed');
+    return response.json();
 };
 
 export const sendMessage = async (message: string, city: string): Promise<string> => {
-    const response = await api.post<{ response: string }>('/chat', { message, city });
+    const response = await axios.post<{ response: string }>(`${API_BASE}/chat`, { message, city });
     return response.data.response;
 };

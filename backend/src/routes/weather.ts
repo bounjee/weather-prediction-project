@@ -7,10 +7,10 @@ const weatherService = new WeatherService();
 router.get('/:city', async (req, res) => {
     try {
         const { city } = req.params;
-        const forecast = await weatherService.getForecast(city);
+        const weatherResponse = await weatherService.getForecast(city);
         res.json({
             city,
-            forecast
+            ...weatherResponse
         });
     } catch (error) {
         res.status(500).json({ error: 'Veri alınırken bir hata oluştu.' });

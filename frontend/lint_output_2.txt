@@ -1,0 +1,6 @@
+
+C:\Users\musta\Desktop\weather-predict\frontend\tailwind.config.js
+  69:2  error  Parsing error: Unexpected token ,
+
+Ô£û 1 problem (1 error, 0 warnings)
+

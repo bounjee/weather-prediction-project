@@ -10,6 +10,7 @@ export interface WeatherData {
     wind_speed: number; // km/h
     description: string;
     precipitation_prob: number; // %
+    pressure: number; // hPa
     icon: string;
 }
 
@@ -44,4 +45,18 @@ export interface AgroAnalysis {
 export interface DayForecast {
     weather: WeatherData;
     analysis: AgroAnalysis;
+}
+
+export interface ModelInfo {
+    architecture: string;
+    pencere: number;
+    features: number;
+    val_mae: number;
+    val_loss: number;
+    epochs: number;
+}
+
+export interface WeatherResponse {
+    forecast: DayForecast[];
+    model_info?: ModelInfo;
 }

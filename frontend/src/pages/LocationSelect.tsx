@@ -1,70 +1,96 @@
-import React, { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Sprout, MapPin, CheckCircle2 } from 'lucide-react';
 
 const SUPPORTED_CITIES = ["Ankara"];
 
 export default function LocationSelect() {
-    // Varsayılan olarak Ankara seçili gelsin veya kullanıcı listeden sadece Ankara'yı görsün
     const [selectedCity, setSelectedCity] = useState('Ankara');
     const navigate = useNavigate();
+
+    // Auto-redirect if city already selected
+    useEffect(() => {
+        if (localStorage.getItem('user_city')) {
+            navigate('/dashboard');
+        }
+    }, [navigate]);
 
     const handleContinue = () => {
         if (selectedCity) {
             localStorage.setItem('user_city', selectedCity);
-            navigate('/dashboard');
+            window.location.href = '/dashboard';
         }
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-            <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-                <div className="text-center">
-                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">AgroWeather AI</h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        Yapay Zeka destekli Tarımsal Karar Destek Sistemi
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#F2F5F3] p-6 relative overflow-hidden">
+            {/* Background blobs */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-green-200/30 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-100/40 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
+
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="w-full max-w-md bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl shadow-stone-200/50 border border-white/50 relative z-10"
+            >
+                <div className="text-center mb-10">
+                    <div className="inline-flex p-4 bg-green-100/50 rounded-2xl mb-4">
+                        <Sprout className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-stone-800 tracking-tight">AgroWeather<span className="text-green-600">AI</span></h2>
+                    <p className="mt-3 text-stone-500 font-medium">
+                        Akıllı Tarımsal Takip Sistemi
                     </p>
                 </div>
 
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex gap-2">
-                        <div className="shrink-0">
-                            <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                <div className="mb-8 bg-amber-50/50 border border-amber-100 rounded-2xl p-5">
+                    <div className="flex gap-3">
+                        <div className="shrink-0 mt-1">
+                            <CheckCircle2 className="h-5 w-5 text-amber-600" />
                         </div>
-                        <p className="text-sm text-blue-800">
-                            <strong>Bilgilendirme:</strong> Yapay Zeka (LSTM) modelimiz şu an yalnızca <strong>Ankara</strong> istasyonu verileriyle eğitildiği için sadece bu bölgede hizmet vermektedir.
+                        <p className="text-sm text-amber-900/80 leading-relaxed">
+                            <strong>Bölgesel Kapsam:</strong> Şu anda Yapay Zeka modellerimiz yalnızca <strong>Ankara</strong> bölgesi için optimize edilmiştir.
                         </p>
                     </div>
                 </div>
 
-                <div className="mt-8 space-y-6">
+                <div className="space-y-6">
                     <div className="space-y-2">
-                        <label htmlFor="city" className="block text-sm font-medium text-gray-700">
+                        <label htmlFor="city" className="block text-sm font-bold text-stone-700 ml-1">
                             Bölge Seçimi
                         </label>
-                        <select
-                            id="city"
-                            value={selectedCity}
-                            onChange={(e) => setSelectedCity(e.target.value)}
-                            className="block w-full rounded-md border border-gray-300 bg-white py-3 px-4 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 text-base"
-                        >
-                            {SUPPORTED_CITIES.map((city) => (
-                                <option key={city} value={city}>
-                                    {city} (Aktif)
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                            <select
+                                id="city"
+                                value={selectedCity}
+                                onChange={(e) => setSelectedCity(e.target.value)}
+                                className="block w-full rounded-xl border border-stone-200 bg-white py-4 pl-11 pr-4 shadow-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 text-stone-700 font-medium appearance-none"
+                            >
+                                {SUPPORTED_CITIES.map((city) => (
+                                    <option key={city} value={city}>
+                                        {city} (Aktif İstasyon)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <button
                         onClick={handleContinue}
-                        className="flex w-full justify-center rounded-md border border-transparent py-3 px-4 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 bg-purple-600 hover:bg-purple-700"
+                        className="w-full py-4 px-6 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                        Sisteme Giriş Yap
+                        Başla
                     </button>
                 </div>
-            </div>
+            </motion.div>
+
+            <p className="mt-8 text-xs text-stone-400 font-medium">
+                © 2025 AgriCast Technology v2.0
+            </p>
         </div>
     );
 }

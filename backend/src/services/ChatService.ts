@@ -11,7 +11,8 @@ export class ChatService {
         const lowerMsg = message.toLowerCase();
 
         // 1. Get Weather Data Context
-        const forecasts = await this.weatherService.getForecast(city);
+        const weatherResponse = await this.weatherService.getForecast(city);
+        const forecasts = weatherResponse.forecast;
         const today = forecasts[0];
         const tomorrow = forecasts[1];
 
