@@ -16,7 +16,7 @@
 *   Piyasa fiyatlarını takip etmek ve karar vermek için birden fazla kaynağa ihtiyaç duyulur.
 
 ### Çözümümüz
-*   **Derin Öğrenme (LSTM):** Geçmiş 30 günlük verileri analiz ederek gelecekteki sıcaklık trendlerini ve sapmalarını tahminler.
+*   **Derin Öğrenme (LSTM):** Geçmiş 90 günlük verileri analiz ederek gelecekteki sıcaklık trendlerini ve sapmalarını tahminler.
 *   **Operasyonel Karar Desteği:** "Traktörle tarlaya girilir mi?", "Bugün ilaç atılır mı?" gibi kritik sorulara net, renk kodlu (Yeşil/Kırmızı) cevaplar üretir.
 *   **Entegre Asistan:** Çiftçinin anlık sorularını yanıtlayan bir yapay zeka asistanı içerir.
 *   **Piyasa Ekranı:** Gübre, mazot ve ürün fiyatlarını tek ekranda canlı olarak gösterir.
@@ -32,14 +32,13 @@ Proje, modern ve ölçeklenebilir bir mikroservis mimarisine sahiptir.
 *   **Tasarım:** Tailwind CSS (Özel "AgriCast" doğa teması, Glassmorphism efektleri)
 *   **Animasyon:** Framer Motion (Akıcı geçişler, kayan yazılar, etkileşimli kartlar)
 *   **İkon Seti:** Lucide React
-*   **Özellikler:** Responsif tasarım, Dark/Light mode altyapısı, PWA uyumluluğu.
+*   **Özellikler:** Responsif tasarım, Dark/Light mode altyapısı.
 
 ### B. Backend (API Gateway) -> `backend/`
 *   **Dil:** Node.js + Express (TypeScript)
 *   **Görevi:**
     *   İstemci (Frontend) ile Veri Kaynakları arasındaki köprüdür.
-    *   Hava durumu verilerini (OpenWeatherMap API benzeri) çeker ve ön işler.
-    *   Python AI servisine verileri iletip sonucu alır.
+    *   Python AI servisine isteği iletip tahmin sonucunu alır.
     *   Zirai risk hesaplamalarını (Don riski, nem hastalığı vb.) işler.
 
 ### C. Yapay Zeka (AI Engine) -> `ai-model/`
@@ -50,8 +49,8 @@ Proje, modern ve ölçeklenebilir bir mikroservis mimarisine sahiptir.
 *   **Yerel Veri Stratejisi (Offline-Ready):**
     *   Proje artık dış dünyaya (OpenWeather vb.) bağımlı değildir.
     *   **Eğitim Verisi:** 25.000+ satırlık `cities.csv` (Türkiye geneli tarihsel veri seti).
-    *   **Tahmin Mekanizması:** Model, son 30 günlük veriyi "seed" (tohum) olarak kullanır ve ileriye dönük 7 günlük tam hava durumu tablosunu (Tüm parametrelerle birlikte) iteratif olarak oluşturur.
-*   **Risk Analizi:** LSTM'den gelen 7 farklı parametre Node.js tarafındaki Karar Motoruna (Decision Engine) aktarılır ve tarımsal riskler (Don, Mantar, İlaçlama vb.) bu veriler üzerinden hesaplanır.
+    *   **Tahmin Mekanizması:** Model, son 90 günlük veriyi "seed" (tohum) olarak kullanır ve ileriye dönük tahmini `days` parametresi kadar iteratif olarak oluşturur (backend çağrısında `days=6`, varsayılan `days=7`).
+*   **Risk Analizi:** LSTM'den gelen çoklu parametre Node.js tarafındaki Karar Motoruna (Decision Engine) aktarılır ve tarımsal riskler (Don, Mantar, İlaçlama vb.) bu veriler üzerinden hesaplanır.
 
 
 ---

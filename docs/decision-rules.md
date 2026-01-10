@@ -1,6 +1,6 @@
 # 🌾 Tarımsal Karar Motoru Kuralları (Decision Rules)
 
-AgroWeatherAI, sadece hava tahmini yapmaz; bu verileri **Tarımsal Karar Motoru (Decision Engine)** ile işleyerek çiftçiye tavsiye verir. Bu belgede, sistemin "Riskli" veya "Uygun" kararına varırken kullandığı fiziksel ve biyolojik formüller yer almaktadır.
+AgroWeatherAI, sadece hava tahmini yapmaz; bu verileri **Tarımsal Karar Motoru (Decision Engine)** ile işleyerek çiftçiye tavsiye verir. Bu belgede, sistemin karar verirken kullandığı mevcut kurallar **kodla birebir** özetlenmiştir.
 
 *Kaynak Kod Referansı:* `backend/src/services/DecisionEngine.ts`
 
@@ -10,16 +10,23 @@ AgroWeatherAI, sadece hava tahmini yapmaz; bu verileri **Tarımsal Karar Motoru 
 
 Don olayı sadece sıcaklığa bağlı değildir. Havadaki nem ve sıcaklık farkı (Dew Point) kritiktir.
 
-### Kullanılan Metrikler:
+### Kullanılan Metrikler (kod)
 *   **Min Sıcaklık (T_min):** Günün en düşük sıcaklığı.
-*   **Çiy Noktası (Dew Point):** *Magnus Formülü* ile hesaplanır.
+*   **Bağıl Nem (RH):** Günün nem değeri.
+*   **Çiy Noktası (Dew Point) — yaklaşık:**
+    *   \(DP \approx T_{min} - \frac{100 - RH}{5}\)
 
-### Karar Matrisi:
-| Durum | Koşul | Açıklama |
-| :--- | :--- | :--- |
-| 🔴 **YÜKSEK (Kara Don)** | `T_min ≤ 0°C` VE `DewPoint ≤ -3°C` | Hava çok kuru ve soğuk. Bitki özsuyu donar, buzlanma görünmez ama bitki ölür. En tehlikeli durum. |
-| 🟠 **ORTA (Beyaz Don)** | `T_min ≤ 2°C` | Bitki üzerinde beyaz buz kristalleri oluşur. |
-| 🟢 **DÜŞÜK** | `T_min > 2°C` | Risk yok. |
+> Not: Kod içinde “Magnus” yorumu geçse de, uygulanan hesap bu basitleştirilmiş yaklaşımdır.
+
+### Karar Kuralları (kod)
+*   🔴 **KARA DON (EXTREME):**
+    *   `T_min ≤ 0` VE `DP ≤ -3` VE `(T_min - DP) > 2`
+*   ⚪ **KIRAĞI (WHITE_FROST):** `T_min ≤ 0` ise
+    *   `T_min ≤ -4` → HIGH
+    *   `T_min ≤ -2` → MEDIUM
+    *   aksi → LOW
+*   🟠 **SINIRDA DON (LOW):** `T_min ≤ 2`
+*   🟢 **YOK (NONE):** aksi
 
 ---
 
@@ -27,36 +34,27 @@ Don olayı sadece sıcaklığa bağlı değildir. Havadaki nem ve sıcaklık far
 
 Tohumun çimlenmesi için toprağın belli bir sıcaklık birikimine (ısı enerjisine) ihtiyacı vardır.
 
-### Kullanılan Metrikler:
+### Kullanılan Metrikler (kod)
 *   **GDD (Growing Degree Days):** Büyüme Derece Günleri.
-    *   *Formül:* `(T_max + T_min) / 2 - T_base`
-    *   *Taban Sıcaklık (T_base):* Genel tahıl/sebze için **10°C** kabul edilmiştir.
-*   **Toprak Tahmini:** `Hava Sıcaklığı - 3°C` (Basitleştirilmiş yaklaşım).
+    *   *Formül:* \(GDD = \frac{T_{max} + T_{min}}{2} - T_{base}\)
+    *   *Taban Sıcaklık (T_base):* `5`
+    *   Negatifse `0`’a kırpılır.
 
-### Karar Kuralları:
-*   ✅ **UYGUN:**
-    *   `GDD > 0` (Yeterli ısı birikimi var)
-    *   `Ortalama Sıcaklık > 5°C`
-    *   `Rüzgar < 30 km/s`
-    *   `Yağış < 5mm` (Toprak çamur değil)
-*   ❌ **RİSKLİ:** Yukarıdaki koşullardan biri sağlanmazsa.
+### Karar Kuralları (kod)
+*   ❌ **UYGUN DEĞİL:** `GDD ≤ 0` veya `temp.day < 5` veya `precipitation_prob > 60` veya `wind_speed > 25`
+*   ✅ **UYGUN:** aksi
+
+> Not: `precipitation_prob` bu projede modelin doğrudan çıktısı değildir; `backend/src/services/WeatherService.ts` içinde basit bir türetimle üretilir.
 
 ---
 
 ## 🚜 3. İlaçlama Zamanlaması (Spraying)
 
-Zirai ilacın (pestisit) verimli olması için havada uçup gitmemesi (drift) ve hemen buharlaşmaması gerekir.
+Zirai ilacın (pestisit) verimli olması için havada uçup gitmemesi (drift) ve yağışla yıkanmaması gerekir.
 
-### Kullanılan Metrikler:
-*   **Delta-T:** Yaş termometre ve kuru termometre sıcaklık farkı. İlacın damlacık ömrünü belirler.
-    *   *Hesap:* `Kuru Sıcaklık - Islak Sıcaklık (DewPoint)`
-
-### Karar Kuralları:
-*   ✅ **İDEAL:**
-    *   `2°C < Delta-T < 8°C` (Damlacık ne çok hızlı buharlaşır ne de yaprakta ıslak kalır).
-    *   `Rüzgar < 15 km/s` (İlaç komşu tarlaya sürüklenmez).
-    *   `Yağış İhtimali < %20` (İlaç yağmurla yıkanmaz).
-*   ❌ **UYGUN DEĞİL:** Rüzgarlı, yağmurlu veya çok sıcak/kuru (yüksek Delta-T) havalar.
+### Karar Kuralları (kod)
+*   ❌ **UYGUN DEĞİL:** `wind_speed > 15` veya `precipitation_prob > 40` veya `temp.day > 30`
+*   ✅ **UYGUN:** aksi
 
 ---
 
@@ -64,13 +62,11 @@ Zirai ilacın (pestisit) verimli olması için havada uçup gitmemesi (drift) ve
 
 Mantar (Fungal) hastalıklar sıcak ve nemli ortamları sever.
 
-### Karar Kuralları:
-*   🔴 **YÜKSEK RİSK:**
-    *   `Nem > %80`
-    *   `Sıcaklık > 15°C`
-    *   `Yağış > 0mm` (Islaklık)
-*   🟢 **DÜŞÜK RİSK:** Kuru ve serin havalar.
+### Karar Kuralları (kod)
+*   🔴 **YÜKSEK:** `15 ≤ temp.day ≤ 28` VE `humidity > 80` VE `precipitation_prob > 30`
+*   🟠 **ORTA:** `15 ≤ temp.day ≤ 28` VE `humidity > 80`
+*   🟢 **DÜŞÜK:** aksi
 
 ---
 
-*Not: Bu kurallar genel tarımsal literatüre dayanmaktadır. Ürüne özel (Örn: Sadece Domates için) özelleştirilebilir.*
+*Not: Bu kuralların tamamı `DecisionEngine` içinde deterministik olarak uygulanır; dokümantasyon ile kod çelişirse kod kaynak otoritedir.*

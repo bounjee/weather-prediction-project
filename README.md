@@ -19,55 +19,53 @@ Tarımda en büyük belirsizlik kaynaklarından biri hava koşullarıdır. Bu pr
 ## ✨ Ana Özellikler
 
 ### 🧠 1. Derin Öğrenme Tabanlı Tahmin Motoru
-**Kullanılan Model:** Deep Bidirectional LSTM (Long Short-Term Memory)
+**Kullanılan Model:** Deep (stacked) LSTM — `ai-model/train_model.py` ile eğitilir, `ai-model/predict_server.py` ile servis edilir.
 
-- **Mimari:** 3 katmanlı Bi-LSTM + Dropout + Batch Normalization
-- **Eğitim Verisi:** 2019-2025 arası 6 yıllık Ankara hava verileri (~25.000 satır)
-- **Performans:** MAE (Mean Absolute Error) = **0.054°C** (professiyonel seviye doğruluk)
-- **Özellikler (Features):** Sıcaklık (avg/max/min), nem, rüzgar, basınç, yağış + mevsimsel kodlama (sin/cos)
+- **Look-back penceresi:** 90 gün (`LOOK_BACK = 90`)
+- **Model mimarisi (kod):** Bi-LSTM(128) → LSTM(128) → LSTM(64) → Dense(64→32→10) (+ Dropout/BatchNorm)
+- **Eğitim verisi (repo snapshot):** `ai-model/cities.csv` (2019-01-01 → 2025-11-01, 24,970 satır / 10 şehir). Eğitimde `CITY_NAME='Ankara'` ile Ankara alt-kümesi (2,497 satır) kullanılır.
+- **Girdi özellikleri:** 8 meteorolojik özellik + 2 mevsimsel kodlama (`day_sin`, `day_cos`) = 10 boyut
+- **Eğitim split:** İlk %85 eğitim, son %15 doğrulama (kronolojik / time-ordered)
+- **Kayıtlı metrikler (doğrulama):** `val_mae = 0.0516217`, `val_loss(MSE) = 0.0059382` (`ai-model/model_metrics_ankara.joblib`)
+  - Not: Model MinMax ölçekli uzayda (0–1) eğitildiği için bu değerler doğrudan °C gibi fiziksel birimler değildir.
 
 ### 📊 2. Akıllı Mevsimsel Hafıza (Seasonal Memory)
 Sistem, **canlı tahmin yaparken geçmiş yılların aynı dönemini referans alır:**
-- Bugün 28 Aralık ise → Geçmiş yılların (2023, 2022...) **28 Aralık** dönemindeki 90 günlük veriyi kullanır
-- LSTM modeli bu verilerle "Aralık sonunda hava nasıl davranır?" sorusunu yanıtlar
-- Her gün otomatik güncellenir, **manuel müdahale gerekmez**
+- Bugünün tarihine göre geçmiş yıllardan aynı döneme denk gelen **90 günlük kesintisiz pencere** aranır.
+- Yıl deneme sırası: **[2, 3, 4, 5, 1]** yıl geri (öncelik 2 yıl önce).
+- Hiçbir yılda yeterli pencere bulunamazsa, aynı şehrin `cities.csv` içindeki **son 90 günü** fallback olarak kullanılır.
 
 ### 🌡️ 3. Tarımsal Risk Analiz Motoru
 AI tahmini ham verileri (sıcaklık, nem vb.) alır ve fiziksel formüllerle tarımsal risklere çevirir:
 
 #### ❄️ Don Riski Analizi
 **Kullanılan Metrikler:**
-- **Magnus Formülü** ile Çiy Noktası (Dew Point) hesaplanır
+- **Dew Point (yaklaşık):** \(DP \approx T_{min} - \frac{100 - RH}{5}\)
 - **Kara Don (Black Frost):** Hava çok kuru ve soğuksa bitki özsuyu donar (en tehlikeli)
 - **Beyaz Don (White Frost):** Yüzeyde buz kristalleri oluşur
 
 **Karar Kuralları:**
-- 🔴 Yüksek Risk: `Min. Sıcaklık ≤ 0°C` VE `Dew Point ≤ -3°C`
-- 🟠 Orta Risk: `Min. Sıcaklık ≤ 2°C`
-- 🟢 Düşük Risk: `Min. Sıcaklık > 2°C`
+- 🔴 **Kara Don (EXTREME):** `Min. Sıcaklık ≤ 0°C` VE `Dew Point ≤ -3°C` VE `(Min - DewPoint) > 2`
+- ⚪ **Kırağı (White Frost):** `Min. Sıcaklık ≤ 0°C` ise (≤-4 HIGH, ≤-2 MEDIUM, aksi LOW)
+- 🟠 **Sınırda Don:** `Min. Sıcaklık ≤ 2°C` ise LOW, aksi NONE
 
 #### 🌱 Ekim Uygunluk Analizi
 **Kullanılan Metrikler:**
 - **GDD (Growing Degree Days):** Toprağın birikmiş ısı enerjisi
-  - Formül: `(T_max + T_min) / 2 - T_base` (T_base = 10°C)
-- **Toprak Sıcaklığı Tahmini:** Hava sıcaklığı - 3°C
+  - Formül: `(T_max + T_min) / 2 - T_base` (T_base = 5°C, negatifse 0’a kırpılır)
 
 **Karar Kuralları:**
-- ✅ Uygun: GDD > 0, Ort. Sıcaklık > 5°C, Rüzgar < 30 km/s, Yağış < 5mm
-- ❌ Riskli: Yukarıdaki koşullardan biri sağlanmazsa
+- ✅ Uygun: GDD > 0 ve diğer engeller yoksa
+- ❌ Uygun Değil: GDD ≤ 0 veya Ort. Sıcaklık < 5°C veya Yağış İhtimali > %60 veya Rüzgar > 25
 
 #### 🚜 İlaçlama Zamanlaması
-**Kullanılan Metrikler:**
-- **Delta-T:** Kuru termometre - Islak termometre (Dew Point) farkı
-  - İlacın damlacık ömrünü belirler
-
 **Karar Kuralları:**
-- ✅ İdeal: `2°C < Delta-T < 8°C`, Rüzgar < 15 km/s, Yağış ihtimali < %20
-- ❌ Uygun Değil: Çok rüzgarlı, yağmurlu veya Delta-T aralığı dışında
+- ✅ Uygun: Rüzgar düşükse, yağış riski yoksa ve sıcaklık çok yüksek değilse
+- ❌ Uygun Değil: Rüzgar > 15 veya Yağış İhtimali > %40 veya Sıcaklık > 30°C
 
 #### 🍄 Hastalık Riski (Fungal)
 **Karar Kuralları:**
-- 🔴 Yüksek: Nem > %80, Sıcaklık > 15°C, Yağış > 0mm
+- 🔴 Yüksek: Nem > %80, 15°C ≤ Sıcaklık ≤ 28°C, Yağış İhtimali > %30
 - 🟢 Düşük: Kuru ve serin hava
 
 ### 💬 4. AI Chatbot Asistan
@@ -90,7 +88,7 @@ AI tahmini ham verileri (sıcaklık, nem vb.) alır ve fiziksel formüllerle tar
 │              BACKEND (Node.js + Express)                 │
 │  • WeatherService: AI sunucusu ile iletişim             │
 │  • DecisionEngine: Risk hesaplama motoru                │
-│  • ChatService: NLP tabanlı asistan mantığı             │
+│  • ChatService: Kural tabanlı asistan mantığı           │
 └─────────────────┬───────────────────────────────────────┘
                   │ HTTP (Port 5000)
 ┌─────────────────▼───────────────────────────────────────┐
@@ -104,11 +102,11 @@ AI tahmini ham verileri (sıcaklık, nem vb.) alır ve fiziksel formüllerle tar
 ### Veri Akışı:
 1. Kullanıcı Dashboard'u açar
 2. Frontend → Backend'e "Ankara için tahmin" ister
-3. Backend → AI Server'a bağlanır
+3. Backend → AI Server'a `/predict` isteği atar (bu repoda backend `days=6` ile çağırır).
 4. AI Server:
-   - Bugünün tarihini okur (örn: 28 Aralık)
-   - `cities.csv`'den geçmiş yılların 28 Eylül - 28 Aralık verilerini çeker
-   - LSTM modeline verir → 7 günlük tahmin üretir
+   - Bugünün tarihini okur.
+   - Seasonal Memory ile geçmiş yılların aynı takvim dönemine denk gelen **90 günlük** pencereyi seçer (`LOOK_BACK = 90`).
+   - Seçilen pencereyi ölçekler, modeli iteratif çalıştırır ve **`days` kadar** (backend: 6 gün) yarın başlayacak şekilde tahmin üretir.
 5. Backend → Gelen tahminleri Don/Ekim/İlaçlama formüllerinden geçirir
 6. Frontend → Kullanıcıya "Riskli/Uygun" kartları gösterir
 
@@ -116,50 +114,70 @@ AI tahmini ham verileri (sıcaklık, nem vb.) alır ve fiziksel formüllerle tar
 
 ## 🔬 AI Modeli Teknik Detayları
 
-### Veri Seti
-- **Kaynak:** Meteoroloji istasyonları (Ankara)
-- **Dönem:** 1 Ocak 2019 - 1 Kasım 2025
-- **Satır Sayısı:** ~25.000
-- **Özellikler (10 boyut):**
-  - `daily_avg_temp`, `daily_max_temp`, `daily_min_temp`
-  - `humidity`, `wind_speed`, `pressure`, `precipitation`
-  - `day_sin`, `day_cos` (Mevsimsel kodlama: 365 günü dairesel formata çevirir)
+Bu bölüm, repodaki kod ve artifact’lardan doğrulanabilen AI bileşenini özetler.
 
-### Model Mimarisi
-```python
-Model: "Deep Bidirectional LSTM"
-_________________________________________________________________
-Layer (type)                 Output Shape              Param #
-=================================================================
-Input                        (None, 90, 10)            0
-Bidirectional LSTM           (None, 90, 256)           139,264
-Dropout (0.2)                (None, 90, 256)           0
-Bidirectional LSTM           (None, 90, 256)           394,240
-Dropout (0.2)                (None, 90, 256)           0
-LSTM                         (None, 64)                82,176
-Dropout (0.2)                (None, 64)                0
-BatchNormalization           (None, 64)                256
-Dense                        (None, 64)                4,160
-Dense                        (None, 32)                2,080
-Dense (Output)               (None, 10)                330
-=================================================================
-Total params: 622,506
-```
+### Veri seti (training)
+- **Dosya:** `ai-model/cities.csv`
+- **Tarih aralığı (repo snapshot):** 2019-01-01 → 2025-11-01
+- **Boyut (repo snapshot):** 24,970 satır / 10 şehir (Ankara: 2,497 satır)
+- **Eğitim kapsamı:** `train_model.py` içinde `CITY_NAME = 'Ankara'` filtresi uygulanır (Ankara-only eğitim).
+- **Kaynak notu:** `cities.csv` için dış veri kaynağı/citation bilgisi bu repoda kayıtlı değildir.
 
-### Eğitim Stratejisi
-- **Loss Function:** MSE (Mean Squared Error)
-- **Optimizer:** Adam
-- **Batch Size:** 32
-- **Epochs:** 100 (Early Stopping ile otomatik durdurma)
-- **Validation Split:** %20
-- **Callbacks:**
-  - Early Stopping (patience=10)
-  - ReduceLROnPlateau (patience=5)
+### Feature set (10 boyut)
+**Base meteorolojik özellikler (8)** (`FEATURE_COLS`):
+- `daily_avg_temp`, `daily_max_temp`, `daily_min_temp`
+- `daily_avg_wind_speed`
+- `avg_relative_humidity`
+- `avg_pressure`
+- `precipitation_sum`
+- `rainy_hour_sum`
 
-### Performans Metrikleri
-- **MAE (Mean Absolute Error):** 0.054°C
-- **MSE (Mean Squared Error):** 0.0062
-- **Eğitim Süresi:** ~40-50 epoch'ta optimize eder
+**Mevsimsel kodlama (2)**:
+- `day_sin = sin(2π * day_of_year / 365.25)`
+- `day_cos = cos(2π * day_of_year / 365.25)`
+
+### Veri temizleme & ölçekleme
+`train_model.py` içindeki akış:
+- Tarih parse edilir, şehir filtrelenir, veri kronolojik sıralanır.
+- Eksik değerler: **linear interpolation + backward/forward fill**
+- Ölçekleme: **MinMaxScaler(feature_range=(0,1))**
+
+### Supervised time-series framing (training)
+- Girdi penceresi: **90 gün** → `X.shape = (num_samples, 90, 10)`
+- Hedef: **ertesi günün** 10D vektörü → `y.shape = (num_samples, 10)`
+- Not: Eğitim **single-step (next-day)** yapılır. Multi-day tahmin, inference sırasında iteratif olarak üretilir.
+- Train/validation split: **%85 / %15** (kronolojik)
+
+### Model mimarisi (Keras)
+`build_deep_model()`:
+- Bidirectional LSTM(128, return_sequences=True) → BatchNorm → Dropout(0.3)
+- LSTM(128, return_sequences=True) → Dropout(0.3)
+- LSTM(64, return_sequences=False) → BatchNorm → Dropout(0.2)
+- Dense(64) → ReLU → Dropout(0.1)
+- Dense(32) → ReLU
+- Dense(10) output (next-day 10D tahmin)
+
+### Eğitim ayarları
+- Loss: MSE
+- Optimizer: Adam
+- Epochs: 100
+- Batch size: 32
+- Callbacks:
+  - EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
+  - ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=7, min_lr=1e-5)
+
+### Canlı tahmin (inference) — Smart Seasonal Memory + iteratif forecasting
+`predict_server.py` akışı:
+- `/predict?city=<name>&days=<N>` endpoint’i üzerinden tahmin üretilir (varsayılan `days=7`).
+- Bu repodaki backend, AI sunucusunu `days=6` ile çağırır; bu nedenle UI “yarın”dan itibaren **6 günlük** tahmin listesi alır.
+- Seasonal seed: geçmiş yılların aynı dönemine denk gelen 90 günlük pencere aranır; yıl sırası `[2, 3, 4, 5, 1]`.
+- Tahmin: her adımda modelin “ertesi gün” çıktısı alınır; bu çıktı pencereye eklenir ve pencere kaydırılarak bir sonraki gün iteratif tahmin edilir.
+- Her tahmin gününde `day_sin/day_cos` deterministik olarak yeniden hesaplanır ve girdi satırına eklenir.
+
+### Persist edilen artifact’lar
+- Model: `ai-model/weather_lstm_ankara.keras`
+- Scaler: `ai-model/scaler_ankara.joblib`
+- Metrikler: `ai-model/model_metrics_ankara.joblib`
 
 ---
 
@@ -168,13 +186,13 @@ Total params: 622,506
 Sistem her gün şu adımları izler:
 
 1. **Tarih Tespiti:** `datetime.now()` ile bugünün tarihi alınır (örn: 28.12.2025)
-2. **Geçmiş Arama:** `cities.csv` dosyasında, geçmiş yılların aynı tarih aralığı aranır:
-   - Öncelik: 2 yıl önce (2023)
-   - Fallback: 3, 4, 5 yıl önce de taranır
-3. **90 Günlük Pencere:** Bulunan yıldan (örn: 2023) **28 Eylül - 28 Aralık** arası 90 gün çekilir
+2. **Geçmiş Arama:** `cities.csv` dosyasında, geçmiş yılların aynı takvim dönemine denk gelen 90 günlük blok aranır:
+   - Yıl deneme sırası: `[2, 3, 4, 5, 1]` (2 yıl önce öncelikli)
+   - Hiçbir yılda yeterli blok bulunamazsa, aynı şehrin `cities.csv` içindeki **son 90 günü** fallback olarak kullanılır.
+3. **90 Günlük Pencere:** Bulunan hedef tarihten `LOOK_BACK` gün geriye gidilerek 90 günlük pencere oluşturulur.
 4. **Model Girişi:** Bu 90 günlük gerçek veri LSTM modeline verilir
-5. **İteratif Tahmin:** Model 1. günü tahmin eder, sonucu pencereye ekler, 2. günü tahmin eder... (7 güne kadar)
-6. **Sonuç:** 29 Aralık - 4 Ocak arası tahminler üretilir
+5. **İteratif Tahmin:** Model 1. günü tahmin eder, sonucu pencereye ekler, 2. günü tahmin eder... (`days` kadar)
+6. **Sonuç:** Yarın başlayarak `days` adet günlük tahmin üretilir.
 
 **Neden Bu Yöntem?**
 - ✅ Mevsimsel pattern'leri doğru yakalar (Aralık = Kış)
@@ -263,35 +281,33 @@ weather-predict/
 1. Dashboard açılır
 2. "Risk Analizi" kartlarında **Don Riski** kartı görülür
 3. Kart kırmızıysa (Yüksek Risk):
-   - "Kara Don riski! Min: -2°C, Dew Point: -5°C"
-   - Teknik detaylara tıklanırsa Magnus Formülü açıklanır
+   - "🔴 KARA DON RİSKİ! Nem çok düşük, donma gözle görülmeyebilir ama bitki özsuyu donabilir. Kritik önlem şart."
+   - Teknik detaylarda kullanılan eşikler `DecisionEngine` kurallarına dayanır
 
 **Chatbot Kullanımı:**
-- *Kullanıcı:* "Yarın don var mı?"
-- *AI:* "⚠️ EVET! Ciddi don riski var. En düşük -2°C olacak. Hassas bitkileri koruyun."
+- *Kullanıcı:* "Don riski var mı?"
+- *AI:* "Şu an için önemli bir don riski görünmüyor."
 
 ### Senaryo 2: İlaçlama Zamanı
 **Kullanıcı Akışı:**
 1. "İlaçlama" kartını kontrol eder
 2. Yeşil (Uygun) görürse:
-   - "Delta-T: 4.2°C (İdeal), Rüzgar: 8 km/s"
+   - "İlaçlama için rüzgar, sıcaklık ve nem dengesi uygun."
    - İlaçlamayı planlar
 
 **Chatbot Kullanımı:**
 - *Kullanıcı:* "Bugün ilaç atabilir miyim?"
-- *AI:* "✅ EVET! Koşullar ideal. Rüzgar sakin, yağış yok."
+- *AI:* "✅ İlaçlama yapabilirsiniz. Rüzgar sürüklenmesi veya yağmurla yıkanma riski düşük."
 
 ---
 
 ## 📊 Performans ve Doğruluk
 
-### Model Doğruluğu
-- Sıcaklık tahmini: **±0.05°C** ortalama sapma
-- 7 günlük ufuk: %95+ güvenilirlik (ilk 3 gün için)
-
-### Risk Analizleri
-- Don tahmini: Fiziksel formül (Magnus), %100 bilimsel temelli
-- Ekim/İlaçlama: Tarımsal literatür standartları
+### Model metrikleri (repo içi)
+- Eğitim sırasında kaydedilen metrikler: `ai-model/model_metrics_ankara.joblib`
+- `val_mae = 0.0516217` (scaled)
+- `val_loss (MSE) = 0.0059382` (scaled)
+- **Önemli not (birim):** Model MinMax ölçekli uzayda (0–1) eğitildiği için bu metrikler doğrudan °C gibi fiziksel birimler değildir. Fiziksel birimlerde ölçüm için tahmin/gerçek değerleri inverse-transform edip metrikleri değişken bazında (ör. `daily_max_temp`) hesaplamak gerekir.
 
 ---
 
@@ -325,10 +341,6 @@ Bu proje eğitim ve araştırma amaçlıdır. Ticari kullanım için iletişime 
 
 ---
 
-## 🎓 Kaynaklar ve Referanslar
+## 🎓 Not
 
-- Magnus Formülü: [Meteoroloji Literatürü](https://en.wikipedia.org/wiki/Dew_point)
-- GDD Hesaplaması: [Tarımsal Araştırma](https://en.wikipedia.org/wiki/Growing_degree-day)
-- LSTM Networks: [Hochreiter & Schmidhuber, 1997](https://www.bioinf.jku.at/publications/older/2604.pdf)
-
-**Not:** Tüm fiziksel formüller ve tarımsal kurallar bilimsel literatüre dayanmaktadır. Sistem önerileri karar desteği amaçlıdır, profesyonel danışmanlığın yerini almaz.
+Sistemdeki tarımsal risk kuralları ve eşikler, repodaki `backend/src/services/DecisionEngine.ts` dosyasında deterministik olarak tanımlıdır. Dokümantasyon metni ile kod arasında çelişki görürseniz, **kod** kaynak otoritedir.

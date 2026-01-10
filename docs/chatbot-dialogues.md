@@ -1,19 +1,19 @@
 # 💬 Chatbot Örnek Diyalogları ve Test Senaryoları
 
-AgroWeatherAI Asistanı, `ChatService` üzerinden doğal dil işleme (NLP) yeteneğiyle cevap verir. Aşağıda sistemin desteklediği temel senaryolar ve beklenen cevaplar yer almaktadır.
+AgroWeatherAI Asistanı, `ChatService` üzerinden **kural tabanlı** (anahtar kelime/intent) bir akışla cevap verir. Aşağıda sistemin desteklediği temel senaryolar ve beklenen cevap örnekleri yer almaktadır.
 
 ---
 
 ## 1. Don Riski Sorgulama
-**Kullanıcı:** "Yarın don var mı?"
+**Kullanıcı:** "Don riski var mı?"
 **Kullanıcı:** "Don riski durumu nedir?"
 
-**Beklenen Cevap (Yüksek Risk Durumunda):**
-> ⚠️ DİKKAT: Ciddi don riski tespit edildi! Kara don (Black Frost) ihtimali yüksek.
-> Bu gece en düşük sıcaklık -2.4°C olacak. Hassas bitkiler için önlem alınmalıdır.
-
-**Beklenen Cevap (Risksiz Durumda):**
-> Şu an için önemli bir don riski görünmüyor. En düşük sıcaklık 8°C seviyelerinde seyredecek.
+**Beklenen Cevap Örnekleri:**
+> ⚠️ DİKKAT: Şiddetli zirai don (Kırağı) bekleniyor. Bu gece en düşük sıcaklık -2°C olacak.
+>
+> Hafif bir don riski var (-1°C). Çukur alanlardaki hassas bitkileri korumanızı öneririm.
+>
+> Şu an için önemli bir don riski görünmüyor.
 
 ---
 
@@ -22,12 +22,10 @@ AgroWeatherAI Asistanı, `ChatService` üzerinden doğal dil işleme (NLP) yeten
 **Kullanıcı:** "Rüzgar ilaca engel olur mu?"
 
 **Beklenen Cevap (Uygunsa):**
-> ✅ İlaçlama yapabilirsiniz.
-> Rüzgar hızı (12 km/s) ideal seviyede ve yağış beklenmiyor. Delta-T değeri ilaçlamanın verimli olacağını gösteriyor.
+> ✅ İlaçlama yapabilirsiniz. Rüzgar sürüklenmesi veya yağmurla yıkanma riski düşük.
 
 **Beklenen Cevap (Riskliyse):**
-> ❌ İlaçlama için uygun olmayan koşullar var.
-> Rüzgar çok şiddetli (25 km/s), ilacın sürüklenme riski var. Lütfen rüzgarın dinmesini bekleyin.
+> ❌ İlaçlama için uygun olmayan koşullar var. Rüzgar hızı (25 km/h) ilaçlama için yüksek (Sürüklenme Riski).
 
 ---
 
@@ -36,8 +34,9 @@ AgroWeatherAI Asistanı, `ChatService` üzerinden doğal dil işleme (NLP) yeten
 **Kullanıcı:** "Tohum ekebilir miyim?"
 
 **Beklenen Cevap:**
-> ✅ Toprak ve hava koşulları ekim için uygun görünüyor.
-> GDD (Büyüme Derecesi) pozitif ve toprak tahmini sıcaklığı 12°C. Tohum çimlenmesi için güzel bir gün.
+> ✅ Toprak ve hava koşulları ekim için uygun görünüyor. Rüzgar ve yağış seviyeleri makul.
+>
+> ❌ Ekim yapmanız şu an için önerilmez. Büyüme Derece Günleri (GDD) yetersiz. Bitki gelişimi durabilir.
 
 ---
 
@@ -46,8 +45,10 @@ AgroWeatherAI Asistanı, `ChatService` üzerinden doğal dil işleme (NLP) yeten
 **Kullanıcı:** "Hava durumu nedir?"
 
 **Beklenen Cevap:**
-> Yarın için tahmin edilen hava: Parçalı bulutlu, sıcaklık gün içinde 14°C civarında olacak.
-> 🤖 **Yapay Zeka Analizi:** Modelimiz önümüzdeki 3 gün boyunca sıcaklıkların mevsim normallerinde seyredeceğini, ani bir soğuma beklenmediğini öngörüyor.
+> Yarın hava parçalı bulutlu, sıcaklık gün içinde 14°C civarında olacak.
+>
+> 🤖 Yapay Zeka Modelim Analizi: "Yapay Zeka (LSTM) Yarın için 14°C zirve sıcaklık öngörüyor."
+> Tahmin edilen sıcaklık: 14.0°C.
 
 ---
 

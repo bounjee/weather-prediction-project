@@ -15,9 +15,9 @@ Sistem, fiziksel kurallar ve derin öğrenme (Deep Learning) tekniklerini birle�
 
 ### 🛡️ Tarımsal Risk Analizi
 Hava verilerini ham olarak bırakmaz, tarımsal **karar motorundan (Decision Engine)** geçirerek anlamlı uyarılara dönüştürür:
-- **❄️ Don Riski:** *Magnus Formülü* ile "Dew Point" (Çiy Noktası) hesaplanır. Kara don ve beyaz don ayrımı yapılır.
+- **❄️ Don Riski:** Çiy noktası (Dew Point) basitleştirilmiş bir yaklaşımla hesaplanır ve kara don / kırağı (beyaz don) ayrımı yapılır.
 - **🌱 Ekim Uygunluğu:** *GDD (Growing Degree Days)* hesaplanarak toprağın tohum için yeterince ısınıp ısınmadığı analiz edilir.
-- **🚜 İlaçlama Zamanı:** *Delta-T* analizi ile rüzgar ve nem dengesine bakılarak ilacın buharlaşma veya sürüklenme riski ölçülür.
+- **🚜 İlaçlama Zamanı:** Rüzgar, yağış ihtimali ve sıcaklık eşiklerine göre ilaçlama uygunluğu değerlendirilir.
 - **🍄 Hastalık Riski:** Nem ve sıcaklık kombinasyonları izlenerek mantar (fungal) hastalık riskleri önceden bildirilir.
 
 ### 🤖 Akıllı Asistan (Chatbot)
@@ -41,7 +41,7 @@ Sistem, modern ve ölçeklenebilir üç ana katmandan oluşur:
 
 ### C. AI Prediction Server (Yapay Zeka Motoru)
 - **Teknoloji:** Python, Flask, TensorFlow/Keras.
-- **Görev:** Eğitilmiş LSTM modelini canlı tutar. Gelen tarih sorgusuna göre geçmiş veriyi işler ve gelecek 7 günün sıcaklık, nem, rüzgar tahminlerini üretir.
+- **Görev:** Eğitilmiş LSTM modelini canlı tutar. Gelen isteğe göre geçmiş veriyi işler ve `days` parametresi kadar (varsayılan 7; backend çağrısında 6) günlük tahmin üretir.
 
 ---
 
@@ -50,6 +50,6 @@ Sistem, modern ve ölçeklenebilir üç ana katmandan oluşur:
 1. **Kullanıcı** siteyi açar.
 2. **Frontend**, Backend'e "Ankara için tahmin ver" der.
 3. **Backend**, AI Sunucusuna bağlanır.
-4. **AI Sunucusu**, "Mevsimsel Hafıza"sını kullanarak önümüzdeki 7 günü tahmin eder ve sonucu döner.
+4. **AI Sunucusu**, "Mevsimsel Hafıza"sını kullanarak `days` kadar günlük tahmin üretir ve sonucu döner.
 5. **Backend**, gelen saf veriyi (sıcaklık, nem) alır; Don, Ekim ve İlaçlama formüllerinden geçirerek **risk analizlerini** hesaplar.
 6. **Sonuç**, kullanıcının ekranına "Riskli/Uygun" kartları olarak yansır.
