@@ -1,0 +1,29 @@
+{
+  "date": "2026-01-11 01:00:46",
+  "results": [
+    {
+      "name": "Basit LSTM (30 gün)",
+      "look_back": 30,
+      "epochs_trained": 20,
+      "test_mae": 0.05536901578307152,
+      "test_loss": 0.006408943794667721,
+      "temp_mae_celsius": 1.8116357486074504
+    },
+    {
+      "name": "Basit LSTM (90 gün)",
+      "look_back": 90,
+      "epochs_trained": 20,
+      "test_mae": 0.05523412302136421,
+      "test_loss": 0.006401696242392063,
+      "temp_mae_celsius": 1.9549174716578313
+    },
+    {
+      "name": "Derin Bi-LSTM (90 gün)",
+      "look_back": 90,
+      "epochs_trained": 20,
+      "test_mae": 0.07918475568294525,
+      "test_loss": 0.011543743312358856,
+      "temp_mae_celsius": 2.9631485164946056
+    }
+  ]
+}

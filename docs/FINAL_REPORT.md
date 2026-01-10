@@ -374,17 +374,27 @@ The repository includes saved training metrics at `ai-model/model_metrics_ankara
 - **Architecture**: Deep Bidirectional LSTM
 - **Look-back window**: 90 days
 - **Feature dimension**: 10
-- **Epochs trained**: 100
-- **Validation MAE**: 0.0544142425
-- **Validation loss (MSE)**: 0.0062041269
+- **Epochs trained**: 78 (Early Stopping from 100 max)
+- **Validation MAE (scaled)**: 0.0676
+- **Validation loss (MSE)**: 0.0095
+- **Test MAE (scaled)**: 0.0628
+- **Test loss (MSE)**: 0.0077
 
-### Important note about metric units (strengths + limitation)
+### Real-unit MAE (Inverse Transformed)
 
-The model is trained on **MinMax-scaled** features (`MinMaxScaler(feature_range=(0,1))`). The saved `val_mae` and `val_loss` are therefore computed in **scaled space** (0–1), not directly in **°C** or other physical units. The dashboard currently displays this MAE as if it were “±X °C”; that is a **unit mismatch**.
+| Feature | MAE | Unit |
+|---------|-----|------|
+| Average Temperature | 2.55 | °C |
+| Max Temperature | 3.05 | °C |
+| Min Temperature | 2.32 | °C |
+| Humidity | 7.78 | % |
+| Pressure | 3.19 | hPa |
+| Wind Speed | 2.46 | km/h |
+| Precipitation | 1.13 | mm |
 
-**Recommended validation method (future improvement):**
+### Metric Units Explanation
 
-- Inverse-transform predictions and targets back to original units, then compute MAE/RMSE for the specific variables that matter (e.g., `daily_max_temp`, `daily_min_temp`), and optionally per-season.
+The model is trained on **MinMax-scaled** features (`MinMaxScaler(feature_range=(0,1))`). For interpretability, we compute MAE in both scaled space and real units by inverse-transforming predictions.
 
 ### System-level validation (what the running system guarantees)
 

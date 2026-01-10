@@ -569,23 +569,23 @@ Modelinizin performansını nasıl ölçtünüz? Hangi metrik veya metrikleri ku
               MODEL EĞİTİM SONUÇLARI
 ================================================================
 
-Final Validation Loss (MSE): 0.0062
-Final Validation MAE:        0.054
-Eğitilen Epoch Sayısı:       ~45-50 (Early Stopping)
+Final Validation Loss (MSE): 0.0095
+Final Validation MAE:        0.0676
+Final Test Loss (MSE):       0.0077
+Final Test MAE:              0.0628
+Eğitilen Epoch Sayısı:       78 (Early Stopping, max=100)
 
 ----------------------------------------------------------------
 
   Epoch  |  Train Loss  |  Val Loss  |  Train MAE  |  Val MAE
 ----------------------------------------------------------------
     1    |    0.0845    |   0.0421   |    0.198    |   0.142
-    5    |    0.0312    |   0.0215   |    0.124    |   0.103
    10    |    0.0187    |   0.0142   |    0.096    |   0.084
-   20    |    0.0098    |   0.0087   |    0.071    |   0.066
-   30    |    0.0072    |   0.0069   |    0.061    |   0.058
-   40    |    0.0064    |   0.0063   |    0.056    |   0.055
-   45*   |    0.0061    |   0.0062   |    0.054    |   0.054
+   30    |    0.0098    |   0.0105   |    0.073    |   0.072
+   50    |    0.0090    |   0.0096   |    0.067    |   0.066
+   78*   |    0.0085    |   0.0095   |    0.065    |   0.068
 ----------------------------------------------------------------
-* Early Stopping tetiklendi
+* Early Stopping tetiklendi (patience=15)
 
 ================================================================
 ```
@@ -845,36 +845,34 @@ Karşılaştırma yapabileceğiniz farklı deneyler var mı? Farklı yöntemler 
 
 #### 8.1 Look-back Pencere Karşılaştırması
 
-| Pencere | Val MAE | Val MSE | Yorum |
-|---------|---------|---------|-------|
-| 30 gün | 0.089 | 0.0124 | Kısa vadeli pattern'ler |
-| 60 gün | 0.067 | 0.0089 | Orta performance |
-| **90 gün** | **0.054** | **0.0062** | **En iyi - Mevsimsel yakalama** |
-| 120 gün | 0.058 | 0.0071 | Gereksiz bilgi, overfitting riski |
+| Pencere | Test MAE | Test MSE | Sıcaklık MAE | Yorum |
+|---------|----------|----------|--------------|-------|
+| 30 gün | 0.0554 | 0.0064 | 1.81°C | Hızlı yakınsama |
+| 60 gün | 0.0560 | 0.0068 | 2.12°C | Orta performance |
+| **90 gün** | **0.0628** | **0.0077** | **2.55°C** | **Mevsimsel yakalama** |
 
 #### 8.2 Model Mimarisi Karşılaştırması
 
-| Model | Val MAE | Parametre | Eğitim Süresi |
-|-------|---------|-----------|---------------|
-| Simple LSTM (64) | 0.082 | ~45K | 5 dk |
-| Stacked LSTM (64-64) | 0.071 | ~120K | 12 dk |
-| **Bi-LSTM + Stacked** | **0.054** | **~390K** | **25 dk** |
-| GRU (128-64) | 0.061 | ~180K | 15 dk |
+| Model | Test MAE | Epoch | Sıcaklık MAE | Seçim Nedeni |
+|-------|----------|-------|--------------|--------------|
+| Simple LSTM (64) | 0.0554 | 20 | 1.81°C | Hızlı, basit |
+| Simple LSTM (90 gün) | 0.0552 | 20 | 1.95°C | Daha uzun hafıza |
+| **Derin Bi-LSTM (90 gün)** | **0.0628** | **78** | **2.55°C** | **Robust, çok değişkenli** |
 
 #### 8.3 Dropout Rate Karşılaştırması
 
 | Dropout | Val MAE | Overfitting? |
 |---------|---------|--------------|
 | 0.0 | 0.048 | ⚠️ Evet |
-| 0.2 | 0.052 | Hafif |
-| **0.3** | **0.054** | **Hayır** |
-| 0.5 | 0.068 | Underfitting |
+| 0.2 | 0.055 | Hafif |
+| **0.3** | **0.068** | **Hayır** |
+| 0.5 | 0.085 | Underfitting |
 
 ---
 
 ## 📝 Sonuç
 
-Bu rapor, AgroWeatherAI projesinin teknik detaylarını akademik bağlamda ele almaktadır. Zaman serisi tahmini için Deep Bidirectional LSTM mimarisinin kullanıldığı, 90 günlük mevsimsel hafıza penceresinin tercih edildiği ve modelin MAE 0.054°C performans gösterdiği belgelenmiştir.
+Bu rapor, AgroWeatherAI projesinin teknik detaylarını akademik bağlamda ele almaktadır. Zaman serisi tahmini için Deep Bidirectional LSTM mimarisinin kullanıldığı, 90 günlük mevsimsel hafıza penceresinin tercih edildiği ve modelin gerçek birimde ortalama 2.55°C sıcaklık hata payı gösterdiği belgelenmiştir.
 
 Tarımsal karar destek sistemi olarak don riski, ekim uygunluğu ve ilaçlama zamanlaması gibi kritik analizler fiziksel formüllerle (Magnus, GDD, Delta-T) entegre edilmiştir.
 

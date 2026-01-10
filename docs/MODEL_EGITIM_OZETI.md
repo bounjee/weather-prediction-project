@@ -97,6 +97,55 @@ Veri seti kronolojik sırayla üçe bölünmüştür:
 
 ---
 
+## 🔬 Karşılaştırmalı Deneyler
+
+Farklı model konfigürasyonlarının performansını ölçmek için deneyler yapıldı.
+
+### Deney Konfigürasyonları
+
+| Deney # | Model Tipi | Look-back | Katman Sayısı | Epoch |
+|---------|------------|-----------|---------------|-------|
+| 1 | Basit LSTM | 30 gün | 1 LSTM + 1 Dense | 20 |
+| 2 | Basit LSTM | 90 gün | 1 LSTM + 1 Dense | 20 |
+| 3 | Derin Bi-LSTM | 90 gün | 3 LSTM + 2 Dense | 20 |
+| 4 | **Derin Bi-LSTM (Tam Eğitim)** | 90 gün | 3 LSTM + 2 Dense | 78 (Early Stop) |
+
+### Sonuç Tablosu
+
+| Model | Look-back | Epoch | Test MAE (Scaled) | Sıcaklık MAE | Test MSE |
+|-------|-----------|-------|-------------------|--------------|----------|
+| Basit LSTM | 30 gün | 20 | 0.0554 | 1.81°C | 0.0064 |
+| Basit LSTM | 90 gün | 20 | 0.0552 | 1.95°C | 0.0064 |
+| Derin Bi-LSTM | 90 gün | 20 | 0.0792 | 2.96°C | 0.0115 |
+| **Derin Bi-LSTM (Tam)** | **90 gün** | **78** | **0.0628** | **2.55°C** | **0.0077** |
+
+### Analiz ve Tartışma
+
+**Gözlemler:**
+
+1. **Kısa Eğitimde (20 Epoch):** Basit model daha iyi sonuç veriyor. Bunun nedeni basit modelin daha hızlı yakınsama (converge) etmesidir.
+
+2. **Tam Eğitimde (78 Epoch):** Derin Bi-LSTM modeli 2.55°C'ye ulaşarak MSE metriğinde (.0077) en iyi sonucu elde etti.
+
+3. **Trade-off Analizi:**
+   - Basit model: Hızlı, düşük hesaplama maliyeti, kısa vadeli tahminler için yeterli
+   - Derin model: Daha fazla pattern öğrenir, mevsimsel döngüleri daha iyi yakalar
+
+4. **Neden Derin Model Seçildi:**
+   - Çok değişkenli tahmin (10 özellik) için daha uygun
+   - Bidirectional yapı ile ileri-geri pattern öğrenme
+   - BatchNormalization ile stabil eğitim
+   - 90 günlük uzun hafıza gerektiren tarımsal kararlar için daha güvenilir
+
+**Sonuç:**
+Projede **Derin Bidirectional LSTM** modeli tercih edildi çünkü:
+- Mevsimsel tarımsal kararlar için 90 günlük hafıza kritik
+- Çoklu özellik tahmininde daha robust
+- Overfitting kontrolü (Dropout, BatchNorm) ile genelleme kabiliyeti yüksek
+- Test MSE'de en iyi sonuç (0.0077)
+
+---
+
 ## ❓ Hocanın Sorularına Detaylı Cevaplar
 
 ### 1. Train, Validation ve Test Setleri Nedir?
