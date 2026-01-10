@@ -1,13 +1,15 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { getWeather } from '../services/api';
 import LocationSelect from './LocationSelect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
     AlertCircle, Sprout, Wind, Droplets, Thermometer, Calendar, MapPin,
-    Snowflake, Bug, Sun, Cloud, CloudRain, CloudLightning, ArrowUpRight, Leaf, AlertTriangle
+    Snowflake, Bug, Sun, Cloud, CloudRain, CloudLightning, ArrowUpRight, Leaf, AlertTriangle,
+    BarChart3
 } from 'lucide-react';
 
 import ChatWidget from '../components/ChatWidget';
@@ -159,6 +161,13 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <Link
+                            to="/model-results"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            <span className="font-semibold text-sm">Model Sonuçları</span>
+                        </Link>
                         <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-stone-100 rounded-sm border border-stone-200">
                             <MapPin className="w-4 h-4 text-stone-500" />
                             <span className="font-semibold text-stone-700">{city}</span>

@@ -124,7 +124,7 @@ From `ai-model/train_model.py`:
   - Target \(y\): next day’s 10D vector
   - Dataset creation yields `X.shape = (num_samples, 90, 10)` and `y.shape = (num_samples, 10)`
   - This is **single-step** training (next-day). Multi-day forecasts are produced **iteratively** at inference time (see next section), not as a direct multi-step \(H×10\) output.
-- **Train/validation split**: first 85% train, last 15% validation (time-ordered split).
+- **Train/validation/test split**: first 70% train, next 15% validation, last 15% test (time-ordered split, no shuffle).
 
 #### Network architecture (Deep Bi-LSTM)
 

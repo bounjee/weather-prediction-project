@@ -50,7 +50,7 @@ Veri seti, **90 günlük pencerelere** bölünmüştür.
 ### 📉 Optimizasyon
 - **Loss Function:** MSE (Mean Squared Error). Büyük hataları cezalandırarak modelin kararlı olmasını sağlar.
 - **Optimizer:** Adam (Adaptive Moment Estimation).
-- **Train/validation split:** İlk %85 eğitim, son %15 doğrulama (kronolojik, time-ordered split).
+- **Train/validation/test split:** İlk %70 eğitim, sonraki %15 doğrulama, son %15 test (kronolojik, time-ordered split - shuffle yok).
 - **Callback'ler:**
   - *Early Stopping:* `patience=15`, `restore_best_weights=True`
   - *ReduceLROnPlateau:* `factor=0.5`, `patience=7`, `min_lr=1e-5`
