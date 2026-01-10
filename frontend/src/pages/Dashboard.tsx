@@ -260,7 +260,7 @@ export default function Dashboard() {
                                 <div className="flex flex-col items-center justify-center border-r border-white/10 group hover:bg-white/5 transition-all cursor-pointer">
                                     <Wind className="w-8 h-8 text-green-300 mb-3 group-hover:scale-110 transition-transform" />
                                     <span className="text-3xl font-black">{weatherData.forecast[0].weather.wind_speed}</span>
-                                    <span className="text-[10px] font-bold text-green-200/50 uppercase tracking-widest mt-2">Rüzgar (km/s)</span>
+                                    <span className="text-[10px] font-bold text-green-200/50 uppercase tracking-widest mt-2">Rüzgar (km/h)</span>
                                 </div>
                                 <div className="flex flex-col items-center justify-center border-r border-white/10 group hover:bg-white/5 transition-all cursor-pointer">
                                     <Droplets className="w-8 h-8 text-blue-300 mb-3 group-hover:scale-110 transition-transform" />
@@ -394,7 +394,7 @@ export default function Dashboard() {
                                     value: `${weatherData.forecast[0].weather.temp.min}°C`,
                                     lstm_features: "daily_min_temp, avg_relative_humidity, day_sin, day_cos",
                                     formula: "Dew Point = T - ((100 - RH)/5) | Black Frost: T≤0 & DP≤-3 & (T-DP)>2",
-                                    threshold: "Kara Don: min_temp ≤ 0°C, Beyaz Don: min_temp ≤ 2°C"
+                                    threshold: "Kara Don: min_temp ≤ 0°C & DP ≤ -3 & (T-DP)>2 | Kırağı: min_temp ≤ 0°C | Sınırda: min_temp ≤ 2°C"
                                 },
                                 {
                                     title: "Ekim Durumu",
@@ -407,8 +407,8 @@ export default function Dashboard() {
                                     metric: "Toprak Isısı",
                                     value: `${Math.round(weatherData.forecast[0].weather.temp.day - 3)}°C`,
                                     lstm_features: "daily_avg_temp, daily_max_temp, daily_avg_wind_speed, precipitation_sum",
-                                    formula: "GDD = (T_max + T_min)/2 - T_base (10°C) | GDD > 0 gerekli",
-                                    threshold: "GDD > 0, avg_temp > 5°C, wind < 30 km/h, yağış < 5mm"
+                                    formula: "GDD = (T_max + T_min)/2 - T_base (5°C) | GDD > 0 gerekli",
+                                    threshold: "GDD > 0, avg_temp > 5°C, rüzgar ≤ 25, yağış ihtimali ≤ %60"
                                 },
                                 {
                                     title: "İlaçlama",
@@ -419,10 +419,10 @@ export default function Dashboard() {
                                     },
                                     isGood: weatherData.forecast[0].analysis.spraying_risk.suitable,
                                     metric: "Rüzgar Hızı",
-                                    value: `${weatherData.forecast[0].weather.wind_speed} km/s`,
+                                    value: `${weatherData.forecast[0].weather.wind_speed} km/h`,
                                     lstm_features: "daily_avg_wind_speed, precipitation_sum, daily_avg_temp, avg_relative_humidity",
-                                    formula: "Delta-T = T - Dew Point | İdeal: 2°C < ΔT < 8°C",
-                                    threshold: "Rüzgar < 15 km/h, yağış prob < 20%, Delta-T: 2-8°C"
+                                    formula: "Uygun değil: rüzgar>15 veya yağış ihtimali>%40 veya sıcaklık>30°C",
+                                    threshold: "Rüzgar ≤ 15, yağış ihtimali ≤ %40, sıcaklık ≤ 30°C"
                                 },
                                 {
                                     title: "Hastalık Riski",
@@ -435,8 +435,8 @@ export default function Dashboard() {
                                     metric: "Nem Oranı",
                                     value: `%${weatherData.forecast[0].weather.humidity}`,
                                     lstm_features: "avg_relative_humidity, daily_avg_temp, precipitation_sum, rainy_hour_sum",
-                                    formula: "Risk Score = f(RH, T, Rain) | Fungal: RH>80% & T>15°C & Rain>0",
-                                    threshold: "Yüksek Risk: nem > 80%, sıcaklık > 15°C, yağış > 0mm"
+                                    formula: "Fungal: 15°C ≤ T ≤ 28°C & RH>80% & yağış ihtimali> %30",
+                                    threshold: "Yüksek Risk: nem > 80%, 15°C ≤ sıcaklık ≤ 28°C, yağış ihtimali > %30"
                                 }
                             ].map((item, idx) => (
                                 <motion.div

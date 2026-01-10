@@ -15,7 +15,7 @@ export class DecisionEngine {
         };
     }
 
-    // Magnus Formula for Dew Point
+    // Dew point approximation (the codebase does not implement the full Magnus formula)
     private static calculateDewPoint(temp: number, humidity: number): number {
         return temp - ((100 - humidity) / 5);
     }
@@ -82,7 +82,7 @@ export class DecisionEngine {
 
         // Rüzgar
         if (weather.wind_speed > 15) {
-            return { suitable: false, message: `Rüzgar hızı (${weather.wind_speed} km/s) ilaçlama için yüksek (Sürüklenme Riski).` };
+            return { suitable: false, message: `Rüzgar hızı (${weather.wind_speed} km/h) ilaçlama için yüksek (Sürüklenme Riski).` };
         }
 
         // Yağış
